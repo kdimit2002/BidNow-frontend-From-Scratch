@@ -5,5 +5,5 @@ export async function placeBid(
   amount: number
 ): Promise<void> {
   // το backend περιμένει απλά ένα BigDecimal στο σώμα, π.χ. 550
-  return backendPost<void>(`/api/auctions/${auctionId}/bids`, amount);
+  return backendPost<void>(`/api/bids/${auctionId}/placeBid`, amount);
 }

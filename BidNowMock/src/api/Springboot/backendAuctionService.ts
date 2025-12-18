@@ -247,3 +247,47 @@ export async function getMyWonAuctions(
     }
 )
 }
+
+
+// src/api/Springboot/backendAuctionService.ts
+
+// import { SPRINGBOOT_API_BASE_URL } from "../config"; // προσαρμόζεις στο δικό σου base URL
+
+import type { AuctionStatus } from "../../models/Springboot/Auction";
+
+export interface GetMyAuctionsParams {
+  page?: number;
+  size?: number;
+  sortBy?: "startDate" | "endDate";
+  direction?: "asc" | "desc";
+  statusGroup?: AuctionStatus; // ACTIVE | EXPIRED | CANCELLED | PENDING_APPROVAL
+}
+
+/**
+ * GET /auctions/my
+ * Οι δημοπρασίες που έχω δημιουργήσει (owner = current user).
+ */
+export function getMyAuctions(
+  params: GetMyAuctionsParams = {}
+): Promise<SpringPage<AuctionListItem>> {
+  const {
+    page = 0,
+    size = 30,
+    sortBy,
+    direction,
+    statusGroup = "ACTIVE",
+  } = params;
+
+  const query = new URLSearchParams();
+  query.set("page", String(page));
+  query.set("size", String(size));
+  query.set("statusGroup", statusGroup);
+
+  if (sortBy) query.set("sortBy", sortBy);
+  if (direction) query.set("direction", direction);
+
+  const qs = query.toString();
+  const path = qs ? `/auctions/my?${qs}` : "/auctions/my";
+
+  return backendGet<SpringPage<AuctionListItem>>(path);
+}

@@ -39,7 +39,7 @@ export function getAdminUser(firebaseId: string): Promise<AdminUserEntityDto> {
 
 
 export function getAdminUserByUsername(username: string): Promise<AdminUserEntityDto> {
-  return backendGet<AdminUserEntityDto>(`${ADMIN_USERS_PATH}/${username}`);
+  return backendGet<AdminUserEntityDto>(`${ADMIN_USERS_PATH}/username/${encodeURIComponent(username)}`);
 }
 
 

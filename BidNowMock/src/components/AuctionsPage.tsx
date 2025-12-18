@@ -674,6 +674,7 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     const client = new Client({
       webSocketFactory: () => socket as IStompSocket,
       reconnectDelay: 5000,
+
       debug: () => {
         // βάλε console.log αν θες logs
       },

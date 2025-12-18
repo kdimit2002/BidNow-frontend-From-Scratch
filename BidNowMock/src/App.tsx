@@ -1,3 +1,4 @@
+
 // // src/App.tsx
 // import React, { useEffect, useState } from "react";
 
@@ -36,6 +37,18 @@
 
 // import ActiveUsersAllMonthsPage from "./admin/components/ActiveUsersAllMonthsPage";
 
+// // 👇 ΝΕΟ: σελίδα με λεπτομέρειες χρήστη (Admin)
+// import AdminUserDetailsPage from "./admin/components/AdminUserDetailsPage";
+
+// import MyAuctionsPage from "./components/MyAuctionsPage";
+
+// import NotificationsPage from "./components/NotificationsPage";
+
+// import AdminBroadcastNotificationPage from "./admin/components/AdminBroadcastNotificationPage";
+
+
+// import AdminMyAuctionsPage from "./admin/components/AdminMyAuctionsPage";
+
 
 // type AppPage =
 //   | "auctions"
@@ -54,8 +67,12 @@
 //   | "endingAuctions"
 //   | "categories"
 //   | "referralCodes"
-//   | "createReferralCode"
-//   | "inspectActiveUsers";
+//   | "inspectActiveUsers"
+//   | "adminUserDetails"
+//   | "myAuctions"
+//   | "notifications"
+//   | "adminBroadcastNotifications"
+//   | "adminMyAuctions";
 
 
 // type AuthStatus = "loading" | "authenticated" | "unauthenticated";
@@ -68,6 +85,9 @@
 //   const [selectedAuctionId, setSelectedAuctionId] = useState<number | null>(
 //     null
 //   );
+
+//   // 👇 ΝΕΟ: ποιον χρήστη θέλει να δει ο admin
+//   const [selectedAdminUsername, setSelectedAdminUsername] = useState<string | null>(null);
 
 //   // bootstrap auth από stored refresh token
 //   useEffect(() => {
@@ -123,8 +143,14 @@
 //     setPage("auctionDetails");
 //   };
 
-//   const isAuctioneer =
-//     authUser?.roleName === "Auctioneer";
+//   // 🔹 ΝΕΟ: όταν Admin πατάει πάνω σε username (από AuctionsPage)
+//   const handleOpenUserDetailsAsAdmin = (username: string) => {
+//     setSelectedAdminUsername(username);
+//     setPage("adminUserDetails");
+//   };
+
+//   // const isAuctioneer =
+//   //   authUser?.roleName === "Auctioneer";
 
 //   if (authStatus === "loading") {
 //     return (
@@ -185,16 +211,25 @@
 //                   My Active Bids
 //               </button>
 
+//               <button onClick={() => setPage("notifications")}>Notifications</button>
+
+
 
 //               {/* Auctioneers */}
 
 
 //               {/* Create Auction – αν θες μόνο για Auctioneers χρησιμοποίησε το isAuctioneer */}
-//               { isAuctioneer && (
+//               {authUser && (authUser.roleName === "Auctioneer" || authUser.roleName === "Admin") && (
 //                 <>
 //                 <button onClick={() => setPage("createAuction")}>
 //                   Create Auction
 //                 </button>
+
+//                   <button onClick={() => setPage("myAuctions")}>
+//                     My Auctions
+//                   </button>
+
+
 //                     {/* 👇 ΝΕΟ κουμπί για pending auctions */}
 //                 <button onClick={() => { setPage("myPendingAuctions")}}>
 //                 My Pending Auctions
@@ -275,6 +310,13 @@
 //                 </button>
 
              
+//                 <button onClick={() => setPage("adminBroadcastNotifications")}>
+//                   Admin Broadcast
+//                 </button>
+
+//                 <button onClick={() => setPage("adminMyAuctions")}>
+//                   Admin Non-active Auctions
+//                 </button>
 
 
 //               </>
@@ -311,15 +353,28 @@
 //       {page === "signin" && <SignInForm onSignedIn={handleSignedIn} />}
 
 //       {page === "auctions" && (
-//         <AuctionsPage onOpenDetails={handleOpenDetails} />
-//       )}
-
-//       {page === "auctionDetails" && selectedAuctionId !== null && (
-//         <AuctionDetailsPage
-//           auctionId={selectedAuctionId}
-//           onBack={() => setPage("auctions")}
+//         <AuctionsPage
+//           onOpenDetails={handleOpenDetails}
+//           currentUser={authUser}
+//           onOpenUserDetailsAsAdmin={handleOpenUserDetailsAsAdmin}
 //         />
 //       )}
+
+//           {page === "auctionDetails" && selectedAuctionId !== null && (
+// <AuctionDetailsPage
+//   auctionId={selectedAuctionId}
+//   currentUser={authUser}
+//   onBack={() => setPage("auctions")}
+//   onGoToMyAuctions={() => setPage("myAuctions")}
+//   onOpenUserDetailsAsAdmin={(username) => {
+//     setSelectedAdminUsername(username);
+//     setPage("adminUserDetails");
+//   }}
+// />
+
+// )}
+
+      
 
 //       {/* User(Bidder-Auctioneer) */}
 
@@ -338,6 +393,10 @@
 
 //       {page === "myActiveBids" && authStatus === "authenticated" && (
 //         <MyBidAuctionsPage onOpenDetails={handleOpenDetails}/>
+//       )}
+
+//       {page === "notifications" && authStatus === "authenticated" && (
+//         <NotificationsPage />
 //       )}
 
 //       {/* Auctioneer */}
@@ -377,6 +436,11 @@
 //           <AdminPendingAuctionsPage onBack={() => setPage("auctions")} />
 //       )}
 
+//       {page === "myAuctions" && authStatus === "authenticated" && authUser && 
+//       (authUser.roleName === "Auctioneer" || authUser.roleName === "Admin") && (
+//           <MyAuctionsPage onOpenDetails={handleOpenDetails} onBack={() => setPage("auctions")} />
+//       )}
+
 //       {/* Admin categories */}
 //       {page === "categories" && authStatus === "authenticated" && authUser && authUser.roleName == "Admin" && (
 //           <AdminCategoriesPage onBack={() => setPage("auctions")} />
@@ -402,14 +466,34 @@
 //         <ActiveUsersAllMonthsPage />
 //       )}
 
+//       {/* 👇 ΝΕΟ: Admin user details page */}
+//       {page === "adminUserDetails" &&
+//         authStatus === "authenticated" &&
+//         authUser &&
+//         authUser.roleName === "Admin" &&
+//         selectedAdminUsername && (
+//           <AdminUserDetailsPage
+//             username={selectedAdminUsername}
+//             onBack={() => setPage("users")} // ή "auctions", όπως προτιμάς
+//           />
+//       )}
 
-//       {/* Προστασία σελίδων αν για κάποιο λόγο φτάσουμε εδώ χωρίς auth
-//       {authStatus === "unauthenticated" &&
-//         (page === "myProfile" || page === "createAuction") && (
-//           <p style={{ marginTop: "1rem", color: "red" }}>
-//             Πρέπει να συνδεθείς για να δεις αυτή τη σελίδα.
-//           </p>
-//         )} */}
+      
+//       {page === "adminBroadcastNotifications" &&
+//         authStatus === "authenticated" &&
+//         authUser?.roleName === "Admin" && (
+//           <AdminBroadcastNotificationPage />
+//       )}
+
+//       {page === "adminMyAuctions" &&
+//         authStatus === "authenticated" &&
+//         authUser?.roleName === "Admin" && (
+//           <AdminMyAuctionsPage onBack={() => setPage("auctions")} />
+//       )}
+
+
+      
+
 
 //       {/* Προστασία αν κάποιος πάει σε σελίδες χωρίς auth */}
 //       {authStatus === "unauthenticated" &&
@@ -424,7 +508,10 @@
 //           page === "createReferralCode" ||
 //           page === "referralCodes" ||
 //           page === "inspectActiveUsers" ||
-//           page === "myReferralCodeUsage") && (
+//           page === "myReferralCodeUsage" ||
+//           page === "adminUserDetails" ||
+//           page === "adminBroadcastNotifications" ||
+//         page === "adminMyAuctions" ) && (
 //           <p>Πρέπει να συνδεθείς για να δεις αυτή τη σελίδα.</p>
 //         )}
 
@@ -434,6 +521,7 @@
 // };
 
 // export default App;
+
 
 
 // src/App.tsx
@@ -448,34 +536,31 @@ import SignInForm from "./components/SignInForm";
 import UserProfilePage from "./components/UserProfilePage";
 
 import MyPendingAuctionsPage from "./components/MyPendingAuctionsPage";
-
 import MyWonAuctionsPage from "./components/MyWonAuctionsPage";
+import MyBidAuctionsPage from "./components/MyBidAuctionsPage";
+import MyAuctionsPage from "./components/MyAuctionsPage";
 
 import ReferralCodeUsagePage from "./components/ReferralCodeUsagePage";
+import NotificationsPage from "./components/NotificationsPage";
 
 import AdminReferralCodesPage from "./admin/components/AdminReferralCodesPage";
-
-import {
-  initSessionFromStoredRefreshToken,
-} from "./api/Firebase/firebaseIdentityService";
-import {
-  callBackendLogin,
-  logout,
-} from "./api/Springboot/backendUserService";
-import type { AuthUserDto } from "./models/Springboot/UserEntity";
-import MyBidAuctionsPage from "./components/MyBidAuctionsPage";
 import CreateReferralCodePage from "./admin/components/CreateReferralCodePage";
-
 import AdminPendingAuctionsPage from "./admin/components/AdminPendingAuctionsPage";
-
 import AdminCategoriesPage from "./admin/components/AdminCategoriesPage";
-
 import AdminUsersPage from "./admin/components/AdminUsersPage";
-
 import ActiveUsersAllMonthsPage from "./admin/components/ActiveUsersAllMonthsPage";
-
-// 👇 ΝΕΟ: σελίδα με λεπτομέρειες χρήστη (Admin)
 import AdminUserDetailsPage from "./admin/components/AdminUserDetailsPage";
+import AdminBroadcastNotificationPage from "./admin/components/AdminBroadcastNotificationPage";
+import AdminMyAuctionsPage from "./admin/components/AdminMyAuctionsPage";
+
+// ✅ από το παλιό App (merge)
+import AdminVerificationPage from "./admin/components/AdminVerificationPage";
+import AdminProblemReportsPage from "./admin/components/AdminProblemReportsPage";
+
+import { initSessionFromStoredRefreshToken } from "./api/Firebase/firebaseIdentityService";
+import { callBackendLogin, logout } from "./api/Springboot/backendUserService";
+
+import type { AuthUserDto } from "./models/Springboot/UserEntity";
 
 type AppPage =
   | "auctions"
@@ -488,19 +573,27 @@ type AppPage =
   | "myWins"
   | "myActiveBids"
   | "myReferralCodeUsage"
-  | "createReferralCode"
+  | "myAuctions"
+  | "notifications"
+  // Admin
   | "users"
+  | "adminUserDetails"
   | "pendingAuctions"
-  | "endingAuctions"
   | "categories"
   | "referralCodes"
+  | "createReferralCode"
   | "inspectActiveUsers"
-  | "adminUserDetails"; // 👈 ΝΕΟ
+  | "adminBroadcastNotifications"
+  | "adminMyAuctions"
+  | "adminVerifications"
+  | "adminProblemReports"
+  // (κρατάω και αυτό, αν το θες αργότερα)
+  | "endingAuctions";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
 const App: React.FC = () => {
-  const [page, setPage] = useState<AppPage>("auctions"); // 👉 πρώτη σελίδα: auctions
+  const [page, setPage] = useState<AppPage>("auctions");
   const [authStatus, setAuthStatus] = useState<AuthStatus>("loading");
   const [authUser, setAuthUser] = useState<AuthUserDto | null>(null);
 
@@ -508,10 +601,10 @@ const App: React.FC = () => {
     null
   );
 
-  // 👇 ΝΕΟ: ποιον χρήστη θέλει να δει ο admin
-  const [selectedAdminUsername, setSelectedAdminUsername] = useState<string | null>(null);
+  const [selectedAdminUsername, setSelectedAdminUsername] = useState<
+    string | null
+  >(null);
 
-  // bootstrap auth από stored refresh token
   useEffect(() => {
     const bootstrapAuth = async () => {
       try {
@@ -522,7 +615,6 @@ const App: React.FC = () => {
             const auth = await callBackendLogin();
             setAuthUser(auth);
             setAuthStatus("authenticated");
-            // ΔΕΝ σε πετάω σε "home", μένουμε στην auctions
             setPage("auctions");
           } catch (e) {
             console.error("Backend login failed on boot", e);
@@ -544,13 +636,13 @@ const App: React.FC = () => {
       }
     };
 
-    bootstrapAuth();
+    void bootstrapAuth();
   }, []);
 
   const handleSignedIn = (auth: AuthUserDto) => {
     setAuthUser(auth);
     setAuthStatus("authenticated");
-    setPage("auctions"); // μετά το sign in / sign up γυρίζουμε στη λίστα
+    setPage("auctions");
   };
 
   const handleSignOut = () => {
@@ -565,14 +657,38 @@ const App: React.FC = () => {
     setPage("auctionDetails");
   };
 
-  // 🔹 ΝΕΟ: όταν Admin πατάει πάνω σε username (από AuctionsPage)
   const handleOpenUserDetailsAsAdmin = (username: string) => {
     setSelectedAdminUsername(username);
     setPage("adminUserDetails");
   };
 
-  const isAuctioneer =
-    authUser?.roleName === "Auctioneer";
+  const isAuthenticated = authStatus === "authenticated";
+  const isAdmin = authUser?.roleName === "Admin";
+  const isAuctioneerOrAdmin =
+    authUser?.roleName === "Auctioneer" || authUser?.roleName === "Admin";
+  const isReferralOwner = authUser?.isReferralCodeOwner === true;
+
+  const needsAuth =
+    page === "myProfile" ||
+    page === "createAuction" ||
+    page === "myPendingAuctions" ||
+    page === "myActiveBids" ||
+    page === "myWins" ||
+    page === "myAuctions" ||
+    page === "notifications" ||
+    page === "myReferralCodeUsage" ||
+    // admin pages
+    page === "users" ||
+    page === "adminUserDetails" ||
+    page === "pendingAuctions" ||
+    page === "categories" ||
+    page === "referralCodes" ||
+    page === "createReferralCode" ||
+    page === "inspectActiveUsers" ||
+    page === "adminBroadcastNotifications" ||
+    page === "adminMyAuctions" ||
+    page === "adminVerifications" ||
+    page === "adminProblemReports";
 
   if (authStatus === "loading") {
     return (
@@ -584,7 +700,6 @@ const App: React.FC = () => {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "1rem" }}>
-      {/* HEADER / NAVBAR */}
       <header
         style={{
           display: "flex",
@@ -595,145 +710,84 @@ const App: React.FC = () => {
           paddingBottom: "0.5rem",
         }}
       >
-        {/* Αριστερά: τίτλος + κουμπί Auctions */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <h1 style={{ margin: 0, fontSize: "1.3rem" }}>BidNow</h1>
-
           <button onClick={() => setPage("auctions")}>Auctions</button>
         </div>
 
-        {/* Δεξιά: auth info + actions */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          {authStatus === "authenticated" ? (
+          {isAuthenticated ? (
             <>
-
-              {/* Users */}
-
               <span style={{ fontSize: "0.9rem", color: "#555" }}>
-                Logged in as{" "}
-                <strong>{authUser?.username}</strong>
-                {authUser?.roleName && ` (${authUser.roleName})`}
+                Logged in as <strong>{authUser?.username}</strong>
+                {authUser?.roleName ? ` (${authUser.roleName})` : ""}
               </span>
 
-              {/* Profile */}
               <button onClick={() => setPage("myProfile")}>User Profile</button>
-
-              <button
-                onClick={() => {
-                  setPage("myWins");
-                }}
-              >
-                My Wins
+              <button onClick={() => setPage("myWins")}>My Wins</button>
+              <button onClick={() => setPage("myActiveBids")}>
+                My Active Bids
+              </button>
+              <button onClick={() => setPage("notifications")}>
+                Notifications
               </button>
 
-              <button
-                onClick={() => {
-                  setPage("myActiveBids");
-                }}>
-                  My Active Bids
-              </button>
-
-
-              {/* Auctioneers */}
-
-
-              {/* Create Auction – αν θες μόνο για Auctioneers χρησιμοποίησε το isAuctioneer */}
-              { isAuctioneer && (
+              {isAuctioneerOrAdmin && (
                 <>
-                <button onClick={() => setPage("createAuction")}>
-                  Create Auction
-                </button>
-                    {/* 👇 ΝΕΟ κουμπί για pending auctions */}
-                <button onClick={() => { setPage("myPendingAuctions")}}>
-                My Pending Auctions
-                </button>
+                  <button onClick={() => setPage("createAuction")}>
+                    Create Auction
+                  </button>
+                  <button onClick={() => setPage("myAuctions")}>
+                    My Auctions
+                  </button>
+                  <button onClick={() => setPage("myPendingAuctions")}>
+                    My Pending Auctions
+                  </button>
                 </>
-              )
-              }
+              )}
 
-              {/* Referral Code Owner */}
-
-              { authUser && authUser.isReferralCodeOwner&& (
-                <button
-                  onClick={() => {
-                    setPage("myReferralCodeUsage");
-                  }}
-                >
+              {isReferralOwner && (
+                <button onClick={() => setPage("myReferralCodeUsage")}>
                   My Referral Code Usage
                 </button>
-              )
-              }
+              )}
 
-
-              {/* Admin */}
-
-              { authUser && authUser.roleName == "Admin" && (
+              {isAdmin && (
                 <>
-                
-                <button
-                  onClick={() => {
-                    setPage("users");
-                  }}
-                >
-                  Users Page 
-                </button>                
-                
+                  <button onClick={() => setPage("users")}>Users Page</button>
+                  <button onClick={() => setPage("pendingAuctions")}>
+                    Pending Auctions
+                  </button>
+                  <button onClick={() => setPage("categories")}>
+                    Categories
+                  </button>
+                  <button onClick={() => setPage("referralCodes")}>
+                    Referral Codes
+                  </button>
+                  <button onClick={() => setPage("createReferralCode")}>
+                    Create Referral Codes
+                  </button>
+                  <button onClick={() => setPage("inspectActiveUsers")}>
+                    Inspect Active Users
+                  </button>
+                  <button onClick={() => setPage("adminBroadcastNotifications")}>
+                    Admin Broadcast
+                  </button>
+                  <button onClick={() => setPage("adminMyAuctions")}>
+                    Admin Non-active Auctions
+                  </button>
 
-                <button
-                  onClick={() => {
-                    setPage("pendingAuctions");
-                  }}
-                >
-                  Pending Auctions
-                </button>                 
-                
-                <button
-                  onClick={() => {
-                    setPage("categories");
-                  }}
-                >
-                  Categories
-                </button> 
+                  {/* ✅ pages από το παλιό App */}
+                  <button onClick={() => setPage("adminVerifications")}>
+                    Admin Verifications
+                  </button>
+                  <button onClick={() => setPage("adminProblemReports")}>
+                    Admin Problem Reports
+                  </button>
+                </>
+              )}
 
-                <button
-                  onClick={() => {
-                    setPage("referralCodes");
-                  }}
-                >
-                  Referral Codes 
-                </button> 
-
-
-
-                <button
-                  onClick={() => {
-                    setPage("createReferralCode");
-                  }}
-                >
-                  Create Referral Codes
-                </button> 
-
-
-                <button
-                  onClick={() => {
-                    setPage("inspectActiveUsers");
-                  }}
-                >
-                  Inspect Active Users
-                </button>
-
-             
-
-
-              </>
-              )
-              }
-
-
-              {/* Logout */}
               <button onClick={handleSignOut}>Sign Out</button>
-
-
             </>
           ) : (
             <>
@@ -747,17 +801,11 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* ROUTING / PAGES */}
-
-
-      {/* Anonymous */}
-
-      {page === "signup" && (
-        <SignUpFlowPage onSignUpCompleted={handleSignedIn} />
-      )}
-
+      {/* Anonymous pages */}
+      {page === "signup" && <SignUpFlowPage onSignUpCompleted={handleSignedIn} />}
       {page === "signin" && <SignInForm onSignedIn={handleSignedIn} />}
 
+      {/* Public auctions */}
       {page === "auctions" && (
         <AuctionsPage
           onOpenDetails={handleOpenDetails}
@@ -769,36 +817,56 @@ const App: React.FC = () => {
       {page === "auctionDetails" && selectedAuctionId !== null && (
         <AuctionDetailsPage
           auctionId={selectedAuctionId}
+          currentUser={authUser}
+          onBack={() => setPage("auctions")}
+          onGoToMyAuctions={() => setPage("myAuctions")}
+          onOpenUserDetailsAsAdmin={(username: string) => {
+            setSelectedAdminUsername(username);
+            setPage("adminUserDetails");
+          }}
+        />
+      )}
+
+      {/* User pages */}
+      {page === "myProfile" && isAuthenticated && 
+        <UserProfilePage
+          // αν δεν έχεις ReferralCodeUsagePage σε αυτό το app, μπορεί να είναι απλό no-op
+          onShowReferralCodeUsage={() => {
+            alert("Ref  erral code usage page δεν έχει υλοποιηθεί σε αυτό το app.");
+          }}
+        />     
+      }
+
+      {page === "myWins" && isAuthenticated && (
+        <MyWonAuctionsPage
+          onOpenDetails={handleOpenDetails}
           onBack={() => setPage("auctions")}
         />
       )}
 
-      {/* User(Bidder-Auctioneer) */}
-
-      {page === "myProfile" && authStatus === "authenticated" && (
-        <UserProfilePage
-          // αν δεν έχεις ReferralCodeUsagePage σε αυτό το app, μπορεί να είναι απλό no-op
-          onShowReferralCodeUsage={() => {
-            alert("Referral code usage page δεν έχει υλοποιηθεί σε αυτό το app.");
-          }}
+      {page === "myActiveBids" && isAuthenticated && (
+        <MyBidAuctionsPage
+          onOpenDetails={handleOpenDetails}
+          onBack={() => setPage("auctions")}
         />
       )}
-      
-      {page === "myWins" && authStatus === "authenticated" && (
-        <MyWonAuctionsPage />
+
+      {page === "notifications" && isAuthenticated && <NotificationsPage />}
+
+      {page === "myAuctions" && isAuthenticated && isAuctioneerOrAdmin && (
+        <MyAuctionsPage
+          onOpenDetails={handleOpenDetails}
+          onBack={() => setPage("auctions")}
+        />
       )}
 
-      {page === "myActiveBids" && authStatus === "authenticated" && (
-        <MyBidAuctionsPage onOpenDetails={handleOpenDetails}/>
+      {page === "myPendingAuctions" && isAuthenticated && isAuctioneerOrAdmin && (
+        <MyPendingAuctionsPage onBack={() => setPage("auctions")} />
       )}
 
-      {/* Auctioneer */}
-
-      {page === "createAuction" && authStatus === "authenticated" && authUser && authUser.roleName == "Auctioneer" && (
+      {page === "createAuction" && isAuthenticated && isAuctioneerOrAdmin && (
         <CreateAuctionFlowPage
           onCompleted={() => {
-            // Επειδή τα auctions δημιουργούνται ως PENDING,
-            // δεν σε πάω στο details (για να μην φας το "this is not an active auction").
             alert(
               "Το auction δημιουργήθηκε και είναι σε κατάσταση 'pending approval' από admin."
             );
@@ -807,84 +875,74 @@ const App: React.FC = () => {
         />
       )}
 
-      {page === "myPendingAuctions" && authStatus === "authenticated" && authUser && authUser.roleName == "Auctioneer" && (
-          <MyPendingAuctionsPage onBack={() => setPage("auctions")}/>
-      )}
+      {page === "myReferralCodeUsage" &&
+        isAuthenticated &&
+        isReferralOwner && (
+          <ReferralCodeUsagePage onBack={() => setPage("auctions")} />
+        )}
 
-      {/* Referral Code Owner */}
+      {/* Admin pages */}
+      {page === "users" && isAuthenticated && isAdmin && <AdminUsersPage />}
 
-      {page === "myReferralCodeUsage" && authStatus === "authenticated" && authUser && authUser.isReferralCodeOwner && (
-        <ReferralCodeUsagePage onBack={() => setPage("auctions")}/>
-      )}
-
-      {/* Admin */}
-
-      {/* Create Referral Code */}
-      {page === "createReferralCode" && authStatus === "authenticated" && authUser && authUser.roleName == "Admin" && (
-          <CreateReferralCodePage />
-      )}    
-
-      {/* Admin pending auctions */}
-      {page === "pendingAuctions" && authStatus === "authenticated" && authUser && authUser.roleName == "Admin" && (
-          <AdminPendingAuctionsPage onBack={() => setPage("auctions")} />
-      )}
-
-      {/* Admin categories */}
-      {page === "categories" && authStatus === "authenticated" && authUser && authUser.roleName == "Admin" && (
-          <AdminCategoriesPage onBack={() => setPage("auctions")} />
-      )}
-
-      {/* Admin users */}
-      {page === "users" && authStatus === "authenticated" && authUser && authUser.roleName == "Admin" && (
-        <AdminUsersPage />
-      )}
-
-      {/* Create referral code (Admin) */}
-      {page === "createReferralCode" && authStatus === "authenticated" && authUser && authUser.roleName == "Admin" && (
-        <CreateReferralCodePage />
-      )}
-
-      {/* Admin referral codes */}
-      {page === "referralCodes" && authStatus === "authenticated" && authUser && authUser.roleName == "Admin" && (
-        <AdminReferralCodesPage />
-      )}
-
-      {/* Active users stats */}
-      {page === "inspectActiveUsers" && authStatus === "authenticated" && authUser && authUser.roleName == "Admin" && (
-        <ActiveUsersAllMonthsPage />
-      )}
-
-      {/* 👇 ΝΕΟ: Admin user details page */}
       {page === "adminUserDetails" &&
-        authStatus === "authenticated" &&
-        authUser &&
-        authUser.roleName === "Admin" &&
+        isAuthenticated &&
+        isAdmin &&
         selectedAdminUsername && (
           <AdminUserDetailsPage
             username={selectedAdminUsername}
-            onBack={() => setPage("users")} // ή "auctions", όπως προτιμάς
+            onBack={() => setPage("users")}
           />
-      )}
-
-      {/* Προστασία αν κάποιος πάει σε σελίδες χωρίς auth */}
-      {authStatus === "unauthenticated" &&
-        (page === "myProfile" ||
-          page === "createAuction" ||
-          page === "myPendingAuctions" ||
-          page === "myActiveBids" ||
-          page === "myWins" ||
-          page === "pendingAuctions" ||
-          page === "categories" ||
-          page === "users" ||
-          page === "createReferralCode" ||
-          page === "referralCodes" ||
-          page === "inspectActiveUsers" ||
-          page === "myReferralCodeUsage" ||
-          page === "adminUserDetails") && (
-          <p>Πρέπει να συνδεθείς για να δεις αυτή τη σελίδα.</p>
         )}
 
+      {page === "pendingAuctions" && isAuthenticated && isAdmin && (
+        <AdminPendingAuctionsPage onBack={() => setPage("auctions")} />
+      )}
 
+      {page === "categories" && isAuthenticated && isAdmin && (
+        <AdminCategoriesPage onBack={() => setPage("auctions")} />
+      )}
+
+      {page === "referralCodes" && isAuthenticated && isAdmin && (
+        <AdminReferralCodesPage />
+      )}
+
+      {page === "createReferralCode" && isAuthenticated && isAdmin && (
+        <CreateReferralCodePage />
+      )}
+
+      {page === "inspectActiveUsers" && isAuthenticated && isAdmin && (
+        <ActiveUsersAllMonthsPage />
+      )}
+
+      {page === "adminBroadcastNotifications" &&
+        isAuthenticated &&
+        isAdmin && <AdminBroadcastNotificationPage />}
+
+      {page === "adminMyAuctions" && isAuthenticated && isAdmin && (
+        <AdminMyAuctionsPage onBack={() => setPage("auctions")} />
+      )}
+
+      {/* ✅ από το παλιό App */}
+      {page === "adminVerifications" && isAuthenticated && isAdmin && (
+        <AdminVerificationPage onBack={() => setPage("auctions")} />
+      )}
+
+      {page === "adminProblemReports" && isAuthenticated && isAdmin && (
+        <AdminProblemReportsPage onBack={() => setPage("auctions")} />
+      )}
+
+      {/* Placeholder (αν το θες αργότερα) */}
+      {page === "endingAuctions" && (
+        <div>
+          <h2>Ending Auctions</h2>
+          <p>TODO</p>
+        </div>
+      )}
+
+      {/* Auth guard message */}
+      {authStatus === "unauthenticated" && needsAuth && (
+        <p>Πρέπει να συνδεθείς για να δεις αυτή τη σελίδα.</p>
+      )}
     </div>
   );
 };

@@ -6,6 +6,6 @@ import type { MonthlyDailyActiveUsersDto } from "../../admin/models/UserStats";
 // με class-level @RequestMapping("/api/admin")
 export async function getDailyActiveUsersAllMonths(): Promise<MonthlyDailyActiveUsersDto[]> {
   return backendGet<MonthlyDailyActiveUsersDto[]>(
-    "/api/admin/active-users/all-months"
+    "/api/admin/analytics/active-users/all-months"
   );
 }

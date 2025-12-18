@@ -19,7 +19,10 @@ export async function sendChatMessage(
 ): Promise<ChatMessageResponse> {
   const body: ChatMessageRequest = { content };
   return backendPost<ChatMessageResponse>(
-    `/api/auctions/${auctionId}/chat`,
+    `/api/auctions/chat/${auctionId}/sendMessage`,
     body
   );
 }
+
+
+//Get chat
