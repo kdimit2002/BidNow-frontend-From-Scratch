@@ -10,6 +10,7 @@ export type NotificationType =
   | "AUCTION_APPROVED"
   | "NEW_BID_ON_MY_AUCTION"
   | "AUCTION_ENDED_FOR_OWNER"
+  | "REFERRAL_CODE_USE"
   | "GENERAL";
 
 export interface NotificationDto {

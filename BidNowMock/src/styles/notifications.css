@@ -1,0 +1,96 @@
+.notificationsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.notificationCard {
+  position: relative;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  will-change: transform;
+  user-select: none;
+}
+
+.notificationCard:hover {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.14),
+    0 1px 0 rgba(255, 255, 255, 0.65) inset;
+  border-color: rgba(0, 0, 0, 0.14);
+}
+
+.notificationCard:active {
+  transform: translateY(-1px) scale(0.99);
+}
+
+.notificationCard:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.35);
+  outline-offset: 3px;
+}
+
+.notificationCard.unread::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 4px;
+  border-radius: 10px;
+  background: #6366f1;
+}
+
+.notificationTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.notificationTitle {
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.notificationTime {
+  font-size: 11px;
+  opacity: 0.65;
+  white-space: nowrap;
+}
+
+.notificationBody {
+  font-size: 12px;
+  opacity: 0.92;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.notificationFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  gap: 10px;
+}
+
+.pill {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  background: rgba(99, 102, 241, 0.08);
+  font-weight: 700;
+}
+
+.actionHint {
+  font-size: 11px;
+  opacity: 0.6;
+}

@@ -106,3 +106,16 @@ export async function getReferralCodeByCode(
     `/api/admin/referralCodes/${encodeURIComponent(code)}`
   );
 }
+
+export interface ReferralCodeDetailsDto {
+  code: string;
+  points: number; // backend Long
+  disabled: boolean; // backend Boolean
+  remainingUsages: number; // backend Integer
+}
+
+const OWNER_DETAILS_ENDPOINT = "/referralCode/ownerReferralCodeDetails";
+
+export async function fetchOwnerReferralCodeDetails(): Promise<ReferralCodeDetailsDto> {
+  return backendGet<ReferralCodeDetailsDto>(OWNER_DETAILS_ENDPOINT);
+}

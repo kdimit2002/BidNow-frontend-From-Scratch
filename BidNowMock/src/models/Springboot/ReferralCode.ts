@@ -24,6 +24,7 @@ export interface ReferralCodeUserResponse {
 
 // 👇 από /referralCode/getCodeUsage
 export interface ReferralCodeUsageResponse {
+  avatarUrl: string;
   username: string;
   code: string;
 }

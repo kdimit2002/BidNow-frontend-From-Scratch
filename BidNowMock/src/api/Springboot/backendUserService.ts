@@ -172,9 +172,12 @@ import type {
 } from "../../models/Springboot/UserEntity";
 
 
-const BACKEND_BASE_URL =
-  import.meta.env.VITE_BACKEND_BASE_URL ?? "http://localhost:8080";
+// const BACKEND_BASE_URL =
+//   import.meta.env.VITE_BACKEND_BASE_URL ?? "http://localhost:8080";
 
+export const BACKEND_BASE_URL =
+  import.meta.env.VITE_BACKEND_BASE_URL ?? "";
+  
 type UsernameAvailabilityResponse = {
   available: boolean;
 };
@@ -249,6 +252,62 @@ export async function sendSignUpRequest(
   const data = (await res.json()) as AuthUserDto;
   return data;
 }
+
+
+
+
+
+
+
+
+// export async function sendSignUpRequest(
+//   request: SignUpRequest
+// ): Promise<AuthUserDto> {
+//   const token = getFirebaseAuthToken();
+
+//   if (!token) {
+//     throw new Error("No Firebase token available. User is not authenticated.");
+//   }
+
+//   const headers: Record<string, string> = {
+//     "Content-Type": "application/json",
+//     Authorization: `Bearer ${token}`,
+//   };
+
+//   const res = await fetch(`${BACKEND_BASE_URL}/api/auth/signup`, {
+//     method: "POST",
+//     headers,
+//     body: JSON.stringify(request),
+//   });
+
+//   if (!res.ok) {
+//     let message = `HTTP ${res.status}`;
+
+//     try {
+//       const data = (await res.json()) as BackendErrorBody;
+//       if (data.message) {
+//         message = data.message;
+//       }
+//     } catch {
+//       // ignore
+//     }
+
+//     throw new Error(message);
+//   }
+
+//   const data = (await res.json()) as AuthUserDto;
+//   return data;
+// }
+
+// afto xrisimopoia ta functions mas pou bazoun token pano?
+
+
+
+
+
+
+
+
 
 
 // export async function sendSignUpRequest(
@@ -376,4 +435,39 @@ import { backendDelete } from "./backendClient";
  */
 export async function deleteUserAccount(): Promise<void> {
   await backendDelete<void>("/api/auth/deleteUser");
+}
+
+
+
+export type UserExistenceDto = {
+  PhoneNumber: string;
+  Email: string;
+};
+
+export async function checkUserExistence(dto: UserExistenceDto): Promise<void> {
+  const res = await fetch(`${BACKEND_BASE_URL}/api/admin/users/checkExistence`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(dto),
+  });
+
+  if (res.ok) return;
+
+  let message = `HTTP ${res.status}`;
+
+  // προσπάθησε JSON
+  try {
+    const data = (await res.json()) as BackendErrorBody;
+    if (data.message) message = data.message;
+  } catch {
+    // fallback σε text
+    try {
+      const text = await res.text();
+      if (text) message = text;
+    } catch {
+      // ignore
+    }
+  }
+
+  throw new Error(message);
 }

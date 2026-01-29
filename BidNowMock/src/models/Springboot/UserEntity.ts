@@ -135,4 +135,5 @@ export interface AuthUserDto {
   username: string;
   roleName: RoleApiName;
   isReferralCodeOwner: boolean;
+  avatarUrl?: string;
 }

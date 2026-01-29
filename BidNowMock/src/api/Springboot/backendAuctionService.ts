@@ -291,3 +291,9 @@ export function getMyAuctions(
 
   return backendGet<SpringPage<AuctionListItem>>(path);
 }
+
+import { backendDelete } from "./backendClient";
+
+export function deleteAuction(auctionId: number): Promise<void> {
+  return backendDelete<void>(`/auctions/${auctionId}/delete`);
+}
