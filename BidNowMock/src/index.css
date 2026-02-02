@@ -1,71 +1,15 @@
-/* :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+/* =========================================================
+   ✅ FULL index.css (Copy/Paste)
+   - Stable mobile viewport (keyboard)
+   - No mobile input auto-zoom (iOS + Android)
+   - Clean global form colors + autofill + file input button
+   - No horizontal overflow issues
+   ========================================================= */
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+/* =========================
+   BASE / ROOT
+   ========================= */
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
-} */
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -79,6 +23,11 @@ button:focus-visible {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ✅ Prevent odd text scaling on mobile */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 html,
 body,
 #root {
@@ -88,13 +37,45 @@ body,
   padding: 0;
 }
 
+/* ✅ More stable viewport when keyboard opens (mobile) */
 body {
   display: block;
   min-width: 320px;
-  min-height: 100vh;
+
+  min-height: 100vh;  /* fallback */
+  min-height: 100dvh; /* ✅ dynamic viewport */
+
   background: #fafafa;
   color: #111;
 }
+
+/* ✅ box-sizing everywhere */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ✅ Lock horizontal overflow */
+html,
+body,
+#root {
+  overflow-x: hidden;
+}
+
+/* ✅ Prevent smooth-scroll from causing jump on focus */
+html:focus-within {
+  scroll-behavior: auto;
+}
+
+/* ✅ Reduce scroll anchoring jumps */
+body {
+  overflow-anchor: none;
+}
+
+/* =========================
+   LINKS
+   ========================= */
 
 a {
   font-weight: 500;
@@ -104,6 +85,10 @@ a {
 a:hover {
   color: #535bf2;
 }
+
+/* =========================
+   BUTTONS (DEFAULT)
+   ========================= */
 
 button {
   border-radius: 8px;
@@ -127,6 +112,10 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+/* =========================
+   COLOR SCHEME (LIGHT)
+   ========================= */
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #111;
@@ -140,89 +129,31 @@ button:focus-visible {
   }
 }
 
+/* =========================================================
+   ✅ GLOBAL FORMS (ALL PAGES)
+   ========================================================= */
 
+input,
+textarea,
+select,
+option {
+  font-family: inherit;
 
-/* ✅ 1) box-sizing παντού για να μην “ξεφεύγουν” τα widths με padding */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-/* ✅ 2) Κλείδωσε οριζόντιο overflow */
-html,
-body {
-  overflow-x: hidden;
-}
-
-#root {
-  overflow-x: hidden;
-}
-
-
-
-
-
-/* ✅ FIX για inputs σε mobile (iOS/Android) */
-input, textarea, select {
-  color: #111827;
-  -webkit-text-fill-color: #111827; /* iOS Safari */
-  caret-color: #111827;
-}
-
-/* ✅ FIX ειδικά για file input (το "No file chosen" κλπ) */
-input[type="file"]{
-  color: #111827;
-  -webkit-text-fill-color: #111827;
-}
-
-/* ✅ Το κουμπί "Choose file/Browse" */
-input[type="file"]::file-selector-button{
-  color: #111827;
-  background: #ffffff;
-  border: 1px solid #E5E7EB;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-/* ✅ iOS fallback */
-input[type="file"]::-webkit-file-upload-button{
-  color: #111827;
-  background: #ffffff;
-  border: 1px solid #E5E7EB;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-weight: 800;
-  cursor: pointer;
-}
-input, textarea, select {
-  color: #111827 !important;
-  -webkit-text-fill-color: #111827 !important;
-}
-input[type="file"]{
-  color: #111827 !important;
-  -webkit-text-fill-color: #111827 !important;
-}
-
-/* ✅ GLOBAL FIX: inputs να έχουν σωστό κείμενο σε ΟΛΕΣ τις σελίδες */
-input, textarea, select, option {
   color: #111827 !important;
   -webkit-text-fill-color: #111827 !important; /* iOS Safari */
   caret-color: #111827 !important;
   background-color: #ffffff !important;
 }
 
-/* ✅ Placeholders να φαίνονται σωστά */
+/* ✅ Placeholders */
 input::placeholder,
 textarea::placeholder {
-  color: #6B7280 !important;
+  color: #6b7280 !important;
   opacity: 1 !important;
-  -webkit-text-fill-color: #6B7280 !important;
+  -webkit-text-fill-color: #6b7280 !important;
 }
 
-/* ✅ Fix για autofill (Chrome/Safari βγάζει περίεργα χρώματα) */
+/* ✅ Autofill (Chrome/Safari) */
 input:-webkit-autofill,
 textarea:-webkit-autofill,
 select:-webkit-autofill {
@@ -230,47 +161,168 @@ select:-webkit-autofill {
   transition: background-color 999999s ease-in-out 0s;
 }
 
-/* ✅ File inputs (το “No file chosen”, filename κλπ) */
-input[type="file"]{
+/* ✅ File input text + buttons */
+input[type="file"] {
   color: #111827 !important;
   -webkit-text-fill-color: #111827 !important;
 }
 
-input[type="file"]::file-selector-button{
+input[type="file"]::file-selector-button,
+input[type="file"]::-webkit-file-upload-button {
   color: #111827 !important;
   background: #ffffff;
-  border: 1px solid #E5E7EB;
+  border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 8px 12px;
   font-weight: 800;
   cursor: pointer;
 }
 
-/* ✅ iOS fallback για το κουμπί */
-input[type="file"]::-webkit-file-upload-button{
-  color: #111827 !important;
-  background: #ffffff;
-  border: 1px solid #E5E7EB;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-weight: 800;
-  cursor: pointer;
-}
-@media (max-width: 520px) {
-  .bn-auth-input {
+/* ✅ Prevent mobile auto-zoom on focus (iOS + Android) */
+@media (max-width: 900px) {
+  input,
+  textarea,
+  select {
     font-size: 16px !important;
   }
 }
 
+/* =========================================================
+   ✅ index.css (Mobile-stable: iOS + Android)
+   - Prevent input zoom (>=16px)
+   - Freeze background scroll when focused (via body class)
+   - Stable viewport units
+   ========================================================= */
 
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-/* ✅ Prevent iOS Safari auto-zoom when focusing inputs (needs >= 16px) */
-@media (max-width: 640px) {
-  @supports (-webkit-touch-callout: none) {
-    input,
-    textarea,
-    select {
-      font-size: 16px !important;
-    }
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* ✅ πιο σταθερό όταν ανοίγει keyboard */
+body {
+  min-width: 320px;
+  min-height: 100vh;   /* fallback */
+  min-height: 100dvh;  /* mobile dynamic viewport */
+  background: #fafafa;
+  color: #111;
+  overflow-anchor: none;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Links */
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+/* Buttons (default) */
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #ffffff;
+  color: #111;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+/* ✅ Global form colors */
+input,
+textarea,
+select,
+option {
+  font-family: inherit;
+  color: #111827 !important;
+  -webkit-text-fill-color: #111827 !important;
+  caret-color: #111827 !important;
+  background-color: #ffffff !important;
+}
+
+/* Placeholders */
+input::placeholder,
+textarea::placeholder {
+  color: #6b7280 !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #6b7280 !important;
+}
+
+/* Autofill fix */
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: #111827 !important;
+  transition: background-color 999999s ease-in-out 0s;
+}
+
+/* File input buttons */
+input[type="file"]::file-selector-button,
+input[type="file"]::-webkit-file-upload-button {
+  color: #111827 !important;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* ✅ No mobile auto-zoom on focus (iOS + Android) */
+@media (max-width: 900px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
   }
+}
+
+/* ✅ THE IMPORTANT PART:
+   When JS adds .body--scrolllock => freeze the page (no jumping while typing)
+*/
+body.body--scrolllock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  width: 100%;
+  overflow: hidden;
+  /* top is set via JS to preserve scroll position */
 }

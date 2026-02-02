@@ -270,6 +270,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom"; // ✅ NEW
 import { getMyAuctions } from "../api/Springboot/backendAuctionService";
 import { uploadVerificationVideo } from "../api/Springboot/backendVerificationService";
 import type {
@@ -326,6 +327,8 @@ const MyAuctionsPage: React.FC<MyAuctionsPageProps> = ({
   onSignIn,
   onBack,
 }) => {
+  const navigate = useNavigate(); // ✅ NEW
+
   const [page, setPage] = useState<number>(0);
   const [pageData, setPageData] = useState<SpringPage<AuctionListItem> | null>(null);
 
@@ -859,13 +862,6 @@ const MyAuctionsPage: React.FC<MyAuctionsPageProps> = ({
     flex: "1 1 auto",
   };
 
-  const price: React.CSSProperties = {
-    fontWeight: 950,
-    color: "#111827",
-    whiteSpace: "nowrap",
-    flex: "0 0 auto",
-  };
-
   const row: React.CSSProperties = {
     display: "flex",
     alignItems: isMobile ? "flex-start" : "center",
@@ -1168,6 +1164,9 @@ const MyAuctionsPage: React.FC<MyAuctionsPageProps> = ({
 
                   const showDetailsButton = (auction.status==="ACTIVE" || auction.status==="EXPIRED");
 
+                  // ✅ NEW: show black button only for pending approval auctions
+                  const showGoToVerifyBtn = auction.status === "PENDING_APPROVAL";
+
                   return (
                     <div key={auction.id} style={card}>
                       <div style={imgWrap}>
@@ -1205,16 +1204,18 @@ const MyAuctionsPage: React.FC<MyAuctionsPageProps> = ({
                           <p style={auctionTitle} title={auction.title}>
                             {auction.title}
                           </p>
-                          <div style={price}>{formatMoneyEUR(auction.startingAmount)}</div>
                         </div>
 
+                        <div style={row}></div>
+
                         <div style={row}>
-                          <span style={subtle}>{auction.categoryName ?? "—"}</span>
+                          <span style={subtle}>Category: {auction.categoryName ?? "—"}</span>
                           <span style={subtle}>📍 {city}</span>
                         </div>
+                        <div style={row}></div>
 
                         <div style={row}>
-                          <span style={subtle}>Min raise: {formatMoneyEUR(auction.minBidIncrement)}</span>
+                          <span style={subtle}>Starting price: {formatMoneyEUR(auction.startingAmount)}</span>
                           <span style={subtle} title={auction.endDate}>
                             Ends:{" "}
                             {new Date(auction.endDate).toLocaleString("el-GR", {
@@ -1225,6 +1226,9 @@ const MyAuctionsPage: React.FC<MyAuctionsPageProps> = ({
                               minute: "2-digit",
                             })}
                           </span>
+                        </div>
+                        <div style={row}>
+                          <span style={subtle}>Min raise: {formatMoneyEUR(auction.minBidIncrement)}</span>  
                         </div>
 
                         <div style={leadingBox}>
@@ -1267,10 +1271,6 @@ const MyAuctionsPage: React.FC<MyAuctionsPageProps> = ({
                               </div>
                             </div>
                           )}
-                        </div>
-
-                        <div style={subtle} title={auction.shortDescription ?? ""}>
-                          {auction.shortDescription ?? "—"}
                         </div>
 
                         {auction.status == "PENDING_UPLOAD" && (
@@ -1380,6 +1380,17 @@ const MyAuctionsPage: React.FC<MyAuctionsPageProps> = ({
                               </div>
                             )}
                           </div>
+                        )}
+
+                        {/* ✅ NEW BUTTON: only for PENDING_APPROVAL -> goes to MyPendingAuctionsPage */}
+                        {showGoToVerifyBtn && (
+                          <button
+                            type="button"
+                            style={{ ...verifyBtn, width: "100%" }}
+                            onClick={() => navigate("/me/auctions/pending")}
+                          >
+                            Go to verify your product
+                          </button>
                         )}
 
                         {showDetailsButton && (

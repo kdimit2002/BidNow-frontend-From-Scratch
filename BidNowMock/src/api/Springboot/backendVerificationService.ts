@@ -221,7 +221,7 @@ export async function uploadVerificationVideo(auctionId: number, file: File): Pr
  * DELETE /api/auctions/{auctionId}/verification/delete
  */
 export function deleteVerificationVideo(auctionId: number): Promise<void> {
-  return backendDelete<void>(`/api/auctions/${auctionId}/verification/delete`);
+  return backendDelete<void>(`/api/auctions/${auctionId}/verification/video/delete`);
 }
 
 /**

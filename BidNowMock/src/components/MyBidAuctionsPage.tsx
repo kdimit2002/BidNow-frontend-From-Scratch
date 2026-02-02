@@ -748,9 +748,14 @@ const auctionTitle: React.CSSProperties = {
                             <div style={price}>{formatMoneyEUR(auction.startingAmount)}</div>
                           </div>
 
+                          <div style={row}></div>
+
                           <div style={row}>
+                            <span style={subtle}>Starting Price: {formatMoneyEUR(auction.startingAmount)}</span>
                             <span style={subtle}>📍 {city}</span>
-                            <span style={subtle}>Min raise: {formatMoneyEUR(auction.minBidIncrement)}</span>
+                          </div>
+                          <div style={row}>
+                            <span style={subtle}>Min Raise: {formatMoneyEUR(auction.minBidIncrement)}</span>
                           </div>
 
                           <div style={leadingBox}>
@@ -794,11 +799,6 @@ const auctionTitle: React.CSSProperties = {
                               </div>
                             )}
                           </div>
-
-                          <div style={subtle} title={auction.shortDescription ?? ""}>
-                            {auction.shortDescription}
-                          </div>
-
                           <button type="button" style={detailsBtn} onClick={() => setDetailsAuctionId(auction.id)}>
                             More details
                           </button>

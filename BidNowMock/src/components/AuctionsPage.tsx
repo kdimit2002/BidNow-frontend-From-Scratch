@@ -5293,6 +5293,9 @@ import type { IMessage, StompSubscription, IStompSocket } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import { getCategories, type CategoryDto } from "../api/Springboot/backendCategoryService";
 
+// ✅ reuse the same popover component (AuctionDetails uses it as-is)
+import { ConfirmBidPopover, type ConfirmBidState } from "./ConfirmBidPopover";
+
 interface AuctionsPageProps {
   onOpenDetails?: (auctionId: number) => void;
 
@@ -5323,8 +5326,7 @@ interface BidEventDto {
 type InlineNoticeType = "success" | "error";
 
 /* =========================================================
-   ✅ ΜΟΝΗ ΑΛΛΑΓΗ: Τα helper/components βγήκαν ΕΞΩ από AuctionsPage
-   ώστε να μην ξανα-δημιουργούνται σε κάθε render (blink σε mobile).
+   ✅ Helpers/components έξω από AuctionsPage
    ========================================================= */
 
 const initials = (username: string) => {
@@ -5395,7 +5397,6 @@ const InlineNotice = React.memo(
       >
         <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>{message}</div>
 
-        {/* ✅ fixed centered X (same as AuctionDetails) */}
         <button
           type="button"
           onClick={onClose}
@@ -5467,6 +5468,13 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
   >({});
   const bidNoticeTimersRef = useRef<Record<number, number>>({});
 
+  // ✅ Confirm popup (CENTER inside card, stays until Cancel/Confirm)
+  const [confirmBid, setConfirmBid] = useState<ConfirmBidState | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState<boolean>(false);
+
+  // ✅ refs for each card (so we can compute width for centering)
+  const cardRefById = useRef<Record<number, HTMLDivElement | null>>({});
+
   const dismissBidNotice = useCallback((auctionId: number) => {
     const t = bidNoticeTimersRef.current[auctionId];
     if (t) {
@@ -5482,7 +5490,6 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
   }, []);
 
   const showBidNotice = useCallback((auctionId: number, type: InlineNoticeType, message: string) => {
-    // clear old timer
     const old = bidNoticeTimersRef.current[auctionId];
     if (old) window.clearTimeout(old);
 
@@ -5509,7 +5516,7 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     };
   }, []);
 
-  // ✅ prune notices when page changes (avoid keeping notices for auctions not shown)
+  // ✅ prune notices when page changes
   useEffect(() => {
     if (!pageData) return;
     const ids = new Set(pageData.content.map((a) => a.id));
@@ -5534,12 +5541,10 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
   // ✅ More Filters dropdown
   const [showMoreFilters, setShowMoreFilters] = useState<boolean>(false);
 
-  // anchor/button + dropdown refs
   const moreFiltersAnchorRef = useRef<HTMLDivElement | null>(null);
   const moreFiltersBtnRef = useRef<HTMLButtonElement | null>(null);
   const moreFiltersDropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // dropdown absolute position in document (so it scrolls away with page)
   const [moreFiltersPos, setMoreFiltersPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   // -----------------------------
@@ -5553,13 +5558,12 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const isMobile = vw <= 640; // phones
-  const isTablet = vw > 640 && vw <= 1024; // tablets
+  const isMobile = vw <= 640;
+  const isTablet = vw > 640 && vw <= 1024;
 
   const isAuthenticated = !!currentUser;
   const isAuctioneerOrAdmin = currentUser?.roleName === "Auctioneer" || currentUser?.roleName === "Admin";
 
-  // ✅ current username (safe cast)
   const currentUsername = ((currentUser as unknown as { username?: string } | null)?.username ?? "").trim().toLowerCase();
 
   useEffect(() => {
@@ -5833,6 +5837,16 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     return () => window.removeEventListener("mousedown", onMouseDown);
   }, [showMoreFilters]);
 
+  // ✅ close confirm if auction disappears (page/filter change)
+  useEffect(() => {
+    if (!confirmBid || !pageData) return;
+    const ids = new Set(pageData.content.map((a) => a.id));
+    if (!ids.has(confirmBid.auctionId)) {
+      setConfirmBid(null);
+      setConfirmBusy(false);
+    }
+  }, [pageData, confirmBid]);
+
   // -----------------------------
   // ✅ Styles
   // -----------------------------
@@ -5896,7 +5910,6 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     boxSizing: "border-box",
   };
 
-  // ✅ Mobile only: τα 2 buttons δίπλα-δίπλα ΠΑΝΩ από το panel
   const quickActionsRow: React.CSSProperties = {
     display: "flex",
     alignItems: "center",
@@ -5969,7 +5982,6 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     minWidth: 0,
   };
 
-  // ✅ More Filters button
   const moreFiltersRow: React.CSSProperties = {
     marginTop: 14,
     display: "flex",
@@ -6002,7 +6014,6 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     gap: 8,
   };
 
-  // dropdown content (inside portal)
   const dropdownShell = (pos: { top: number; left: number; width: number }): React.CSSProperties => ({
     position: "absolute",
     top: pos.top,
@@ -6037,6 +6048,7 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     boxShadow: "0 10px 25px rgba(17, 24, 39, 0.06)",
     display: "flex",
     flexDirection: "column",
+    position: "relative", // ✅ needed for centered overlay
   };
 
   const imgWrap: React.CSSProperties = {
@@ -6045,7 +6057,6 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     background: "#E5E7EB",
   };
 
-  // ✅ one row container for BOTH sides (time left + badges right)
   const topBadgesRow: React.CSSProperties = {
     position: "absolute",
     top: 10,
@@ -6059,7 +6070,6 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     pointerEvents: "none",
   };
 
-  // ✅ time badge (small, doesn't stretch)
   const badgeLeft: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
@@ -6080,7 +6090,6 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     maxWidth: "62%",
   };
 
-  // ✅ right side stack (category + optional My auction)
   const badgeRightStack: React.CSSProperties = {
     display: "flex",
     flexDirection: "column",
@@ -6107,7 +6116,6 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     maxWidth: "100%",
   };
 
-  // ✅ NEW: My auction badge
   const myAuctionBadge: React.CSSProperties = {
     padding: isMobile ? "5px 9px" : "6px 10px",
     borderRadius: 999,
@@ -6123,7 +6131,6 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     textOverflow: "ellipsis",
   };
 
-  // ✅ ensure overlay doesn't cover badges
   const endedOverlay: React.CSSProperties = {
     position: "absolute",
     inset: 0,
@@ -6188,6 +6195,9 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     color: "#2563EB",
     whiteSpace: "nowrap",
     flex: "0 0 auto",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
   };
 
   const titleStyle: React.CSSProperties = {
@@ -6275,21 +6285,14 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     width: "auto",
   };
 
-  // const actionBtnDark: React.CSSProperties = {
-  //   ...actionBtnLight,
-  //   background: "#1e1e21ff",
-  //   border: "1px solid #0B1220",
-  //   color: "#ffffffff",
-  // };
-
-      const actionBtnDark: React.CSSProperties = {
-      ...actionBtnLight,
-      background: "#1e1e21ff",
-      border: "1px solid #0B1220",
-      color: "#ffffffff",
-      outline: "none",
-      WebkitTapHighlightColor: "transparent",
-    };
+  const actionBtnDark: React.CSSProperties = {
+    ...actionBtnLight,
+    background: "#1e1e21ff",
+    border: "1px solid #0B1220",
+    color: "#ffffffff",
+    outline: "none",
+    WebkitTapHighlightColor: "transparent",
+  };
 
   const bidRow: React.CSSProperties = {
     marginTop: 4,
@@ -6429,7 +6432,6 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
           <div style={resultsRight}>{loading ? "Loading..." : `${totalResults} results`}</div>
         </div>
 
-        {/* ✅ Mobile: actions πάνω από panel, δίπλα-δίπλα */}
         {isMobile && (
           <div style={quickActionsRow}>
             {isAuctioneerOrAdmin && (
@@ -6497,7 +6499,6 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
             ))}
           </div>
 
-          {/* ✅ More Filters dropdown button (portal fixes clipping on laptops) */}
           <div style={moreFiltersRow} ref={moreFiltersAnchorRef}>
             <div style={moreFiltersWrap}>
               <button
@@ -6511,7 +6512,6 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
             </div>
           </div>
 
-          {/* ✅ Dropdown rendered in document.body so it never gets clipped */}
           {showMoreFilters &&
             moreFiltersPos &&
             typeof document !== "undefined" &&
@@ -6590,12 +6590,19 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
 
                 const notice = bidNoticeByAuctionId[auction.id];
 
-                // ✅ NEW: is this auction mine?
                 const sellerUsername = (auction.sellerUsername ?? "").trim().toLowerCase();
                 const isMyAuction = isAuthenticated && currentUsername.length > 0 && sellerUsername === currentUsername;
 
+                const isConfirmOpenForThisCard = confirmBid?.auctionId === auction.id;
+
                 return (
-                  <div key={auction.id} style={card}>
+                  <div
+                    key={auction.id}
+                    style={card}
+                    ref={(el) => {
+                      cardRefById.current[auction.id] = el;
+                    }}
+                  >
                     <div style={imgWrap}>
                       {auction.mainImageUrl ? (
                         <button
@@ -6639,7 +6646,6 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
                         </div>
                       )}
 
-                      {/* ✅ both badges aligned top-left & top-right inline */}
                       <div style={topBadgesRow}>
                         <div style={badgeLeft}>
                           <span style={{ opacity: 0.85 }}>⏱</span>
@@ -6675,8 +6681,8 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
 
                             <div style={sellerLocationInline}>
                               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none">
-                                <path d="M12 22s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-                                <circle cx="12" cy="11" r="2.5" stroke="currentColor" stroke-width="2" />
+                                <path d="M12 22s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+                                <circle cx="12" cy="11" r="2.5" stroke="currentColor" strokeWidth="2" />
                               </svg>
                               {getCityFromLocation(auction.sellerLocation)}
                             </div>
@@ -6807,7 +6813,50 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
                                 <span style={{ color: "#0B84F3" }} aria-hidden="true">🔒</span>  Sign in to Bid
                               </button>
                             ) : auction.eligibleForBid ? (
-                              <button type="button" style={primaryBtn} onClick={() => void handleBidClick(auction)}>
+                              <button
+                                type="button"
+                                style={primaryBtn}
+                                onClick={() => {
+                                  const raw = bidInputs[auction.id];
+
+                                  if (!raw || raw.trim() === "") {
+                                    showBidNotice(auction.id, "error", "Please enter a bid amount.");
+                                    return;
+                                  }
+
+                                  const amount = Number(raw);
+                                  if (!Number.isFinite(amount) || amount <= 0) {
+                                    showBidNotice(auction.id, "error", "Please enter a valid amount.");
+                                    return;
+                                  }
+
+                                  if (amount < minBid) {
+                                    showBidNotice(auction.id, "error", `Minimum bid is ${formatMoney(minBid)}.`);
+                                    return;
+                                  }
+
+                                  // ✅ open centered confirm inside THIS card
+                                  const cardEl = cardRefById.current[auction.id];
+                                  const cardW = cardEl?.getBoundingClientRect().width ?? 360;
+
+                                  const desiredWidth = Math.min(isMobile ? 480 : 360, Math.max(220, cardW - 24));
+
+                                setConfirmBid({
+                                  auctionId: auction.id,
+                                  lastAmount: auction.topBidAmount ?? null,
+                                  startingAmount: auction.startingAmount ?? null, // ✅ added
+                                  amount,
+                                  title: auction.title,
+                                  pos: {
+                                    top: 0,
+                                    left: 0,
+                                    width: desiredWidth,
+                                    placement: "bottom",
+                                  },
+                                });
+
+                                }}
+                              >
                                 Bid
                               </button>
                             ) : (
@@ -6817,7 +6866,6 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
                             )}
                           </div>
 
-                          {/* ✅ inline message right where the user did the error */}
                           {notice && (
                             <InlineNotice
                               type={notice.type}
@@ -6828,6 +6876,53 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
                         </div>
                       )}
                     </div>
+
+                    {/* ✅ CONFIRM OVERLAY: centered in the card, stays until Cancel/Confirm */}
+                    {isConfirmOpenForThisCard && confirmBid && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          zIndex: 4500,
+                          background: "rgba(203, 203, 203, 0.5)",
+                          borderRadius: 16,
+                          display: "block",
+                          pointerEvents: "auto",
+                        }}
+                      >
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "50%",
+                            left: "50%",
+                            transform: "translate(-50%, -50%)",
+                            width: confirmBid.pos.width,
+                            maxWidth: "calc(100% - 24px)",
+                          }}
+                        >
+                          <ConfirmBidPopover
+                            state={{
+                              ...confirmBid,
+                              pos: { ...confirmBid.pos, top: 0, left: 0 },
+                            }}
+                            busy={confirmBusy}
+                            onCancel={() => {
+                              if (confirmBusy) return;
+                              setConfirmBid(null);
+                            }}
+                            onConfirm={async () => {
+                              if (confirmBusy) return;
+                              setConfirmBusy(true);
+
+                              await handleBidClick(auction, confirmBid.amount);
+
+                              setConfirmBusy(false);
+                              setConfirmBid(null);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -6857,22 +6952,22 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     </div>
   );
 
-  async function handleBidClick(auction: AuctionListItemUI) {
+  async function handleBidClick(auction: AuctionListItemUI, amountOverride?: number) {
     if (!isAuthenticated) {
       onSignIn?.();
       return;
     }
 
-    const raw = bidInputs[auction.id];
+    const amount = typeof amountOverride === "number" ? amountOverride : Number(bidInputs[auction.id]);
 
-    if (!raw || raw.trim() === "") {
-      showBidNotice(auction.id, "error", "Please enter a bid amount.");
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showBidNotice(auction.id, "error", "Please enter a valid amount.");
       return;
     }
 
-    const amount = Number(raw);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      showBidNotice(auction.id, "error", "Please enter a valid amount.");
+    const minBidNow = computeMinBid(auction);
+    if (amount < minBidNow) {
+      showBidNotice(auction.id, "error", `Minimum bid is ${formatMoney(minBidNow)}.`);
       return;
     }
 

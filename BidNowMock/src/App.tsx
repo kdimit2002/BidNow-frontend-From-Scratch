@@ -6810,31 +6810,41 @@ const badgeTop = badgeOffset; // κράτα το ίδιο
             element={
               <RequireAuth isAuthenticated={isAuthenticated}>
                 <RequireAuctioneerOrAdmin isAuctioneerOrAdmin={!!isAuctioneerOrAdmin}>
-                  <MyPendingAuctionsPage onBack={() => navigate("/auction")} />
+                  <MyPendingAuctionsPage
+                    onBack={() => navigate("/")}
+                  />
                 </RequireAuctioneerOrAdmin>
               </RequireAuth>
             }
           />
-
+          
           <Route
             path="/auction/create"
             element={
               <RequireAuth isAuthenticated={isAuthenticated}>
                 <RequireAuctioneerOrAdmin isAuctioneerOrAdmin={!!isAuctioneerOrAdmin}>
                   <CreateAuctionFlowPage
-                    onBack={() => navigate("/")}
-                    onCompleted={() => {
-                      navigate("/me/auctions/pending", { replace: true });
-                      showPageToast(
-                        "success",
-                        "Η δημοπρασία δημιουργήθηκε με επιτυχία και αναμένει έγκριση από κάποιον διαχειριστή."
-                      );
-                    }}
-                  />
+                  onBack={() => navigate("/")}
+                  onCompleted={(auctionId) => {
+                    navigate("/me/auctions/pending", {
+                      replace: true,
+                      state: {
+                        pageToast: {
+                          type: "success",
+                          msg: "• The auction was successfully created and is awaiting approval from an administrator.\n" +
+                               "• Many products need verification. Tap Start verification to see requirements. Upload a video if required."
+                        },
+                        createdAuctionId: auctionId,
+                    },
+                  });
+                }}
+              />
+
                 </RequireAuctioneerOrAdmin>
               </RequireAuth>
             }
           />
+
 
           <Route
             path="/me/referrals"

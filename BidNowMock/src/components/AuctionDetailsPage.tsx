@@ -10881,9 +10881,9 @@
 
 
 
-
 // AuctionDetailsPage.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
 import type { IMessage, IStompSocket, StompSubscription } from "@stomp/stompjs";
@@ -10900,6 +10900,11 @@ import type {
   ShippingCostPayer,
 } from "../models/Springboot/Auction";
 import type { AuthUserDto } from "../models/Springboot/UserEntity";
+
+import {
+  ConfirmBidPopover,
+  type ConfirmBidState,
+} from "../components/ConfirmBidPopover";
 
 interface AuctionDetailsPageProps {
   auctionId: number;
@@ -11091,14 +11096,16 @@ const NoticeInline: React.FC<{
         }}
         title="Close"
       >
-        <span style={{ display: "block", transform: "translateY(-0.5px)" }}>✕</span>
+        <span style={{ display: "block", transform: "translateY(-0.5px)" }}>
+          ✕
+        </span>
       </button>
     </div>
   );
 };
 
 /* =========================================================
-   ✅ AvatarCircle έξω από component + React.memo
+   ✅ ΜΟΝΗ ΑΛΛΑΓΗ: AvatarCircle έξω από το component + React.memo
    ========================================================= */
 const AvatarCircle = React.memo(
   ({
@@ -11194,9 +11201,21 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
     onBidUpdateRef.current = onBidUpdate;
   }, [onBidUpdate]);
 
+  // ✅ TOP anchor (scroll-to-top when opening page / changing auction)
+  const pageTopAnchorRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    // 1) window scroll (page variant)
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    // 2) nearest scroll container (modal / nested scroll)
+    pageTopAnchorRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
+  }, [auctionId, variant]);
+
   // images
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
-  const [fullscreenImageUrl, setFullscreenImageUrl] = useState<string | null>(null);
+  const [fullscreenImageUrl, setFullscreenImageUrl] = useState<string | null>(
+    null
+  );
 
   // ✅ track broken images (Cloudflare expiry etc.)
   const [brokenImageByUrl, setBrokenImageByUrl] = useState<Record<string, boolean>>({});
@@ -11239,75 +11258,14 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
   // ✅ optimistic unlock for chat after successful bid (no "locked" feeling)
   const [chatUnlockedOptimistic, setChatUnlockedOptimistic] = useState(false);
 
-  // ------------------ ABSOLUTE scroll-to-top (works on mobile + modal) ------------------
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  // ✅ Confirm bid popover (anchor + state)
+  const bidAnchorRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    // reduce browser scroll restoration surprises on SPA
-    try {
-      if (typeof window !== "undefined" && "scrollRestoration" in window.history) {
-        window.history.scrollRestoration = "manual";
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+  // ✅ NEW: ref στο δεξί card (Time Remaining + Bid + Rankings) για κεντράρισμα popup
+  const bidCardRef = useRef<HTMLDivElement | null>(null);
 
-  const findScrollParent = useCallback((el: HTMLElement | null): HTMLElement | null => {
-    let cur: HTMLElement | null = el;
-    while (cur) {
-      const style = window.getComputedStyle(cur);
-      const overflowY = style.overflowY;
-      const canScrollY =
-        (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
-        cur.scrollHeight > cur.clientHeight;
-
-      if (canScrollY) return cur;
-      cur = cur.parentElement;
-    }
-    return null;
-  }, []);
-
-  const scrollToAbsoluteTop = useCallback(() => {
-    if (typeof window === "undefined") return;
-
-    // 1) window/page scroll
-    window.scrollTo(0, 0);
-    if (document?.documentElement) document.documentElement.scrollTop = 0;
-    if (document?.body) document.body.scrollTop = 0;
-
-    // 2) modal/layout scroll container (if any)
-    const root = rootRef.current;
-    const sp = findScrollParent(root);
-    if (sp) {
-      sp.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    }
-  }, [findScrollParent]);
-
-  // Scroll on open / auction change (multiple attempts for mobile/layout shifts)
-  useEffect(() => {
-    scrollToAbsoluteTop();
-
-    const raf1 = window.requestAnimationFrame(() => scrollToAbsoluteTop());
-    const raf2 = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => scrollToAbsoluteTop());
-    });
-
-    const t = window.setTimeout(() => scrollToAbsoluteTop(), 80);
-
-    return () => {
-      window.cancelAnimationFrame(raf1);
-      window.cancelAnimationFrame(raf2);
-      window.clearTimeout(t);
-    };
-  }, [auctionId, variant, scrollToAbsoluteTop]);
-
-  // Run again after auction is rendered (important on mobile/heavy content)
-  useEffect(() => {
-    if (!auction) return;
-    const t = window.setTimeout(() => scrollToAbsoluteTop(), 0);
-    return () => window.clearTimeout(t);
-  }, [auction?.id, scrollToAbsoluteTop]);
+  const [confirmBid, setConfirmBid] = useState<ConfirmBidState | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
 
   // timers / esc
   useEffect(() => {
@@ -11331,8 +11289,16 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
     setBidAmount("");
     setNewChatContent("");
     didInitialChatScrollRef.current = false; // ✅ reset initial scroll per auction
+
+    // ✅ reset broken image tracking per auction
     setBrokenImageByUrl({});
+
+    // ✅ reset optimistic unlock per auction
     setChatUnlockedOptimistic(false);
+
+    // ✅ close confirm popover per auction
+    setConfirmBid(null);
+    setConfirmBusy(false);
   }, [auctionId, bidNotice.clear, chatNotice.clear, adminNotice.clear]);
 
   // load auction
@@ -11373,7 +11339,11 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
     client.onConnect = () => setStompClient(client);
     client.onStompError = (frame) => {
       // eslint-disable-next-line no-console
-      console.error("STOMP error (details):", frame.headers["message"], frame.body);
+      console.error(
+        "STOMP error (details):",
+        frame.headers["message"],
+        frame.body
+      );
     };
 
     client.activate();
@@ -11432,6 +11402,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
           const bids = already ? prev.bids : [newBid, ...prev.bids];
 
           // ✅ if you have a bid, you can chat (optimistic UX)
+          // (safe: it only affects UI; backend still enforces eligibility)
           return {
             ...prev,
             endDate: payload.newEndDate,
@@ -11440,6 +11411,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
           };
         });
 
+        // ✅ ensure chat unlock even if auction isn't updated yet
         setChatUnlockedOptimistic(true);
       } catch (err) {
         // eslint-disable-next-line no-console
@@ -11491,7 +11463,8 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
     if (!el) return;
 
     const threshold = 90; // px
-    const distanceFromBottom = el.scrollHeight - (el.scrollTop + el.clientHeight);
+    const distanceFromBottom =
+      el.scrollHeight - (el.scrollTop + el.clientHeight);
 
     if (distanceFromBottom <= threshold) {
       window.setTimeout(() => scrollChatToBottom(), 0);
@@ -11516,7 +11489,9 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
   }, [images.length, selectedImageIdx]);
 
   const mainImage =
-    images.length > 0 ? images[Math.min(selectedImageIdx, images.length - 1)] : null;
+    images.length > 0
+      ? images[Math.min(selectedImageIdx, images.length - 1)]
+      : null;
 
   const timeBox = useMemo(() => {
     if (!auction) return { label: "", ended: false };
@@ -11546,13 +11521,15 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
     if (!auction) return null;
     if (!isActive) return "Chat is closed because the auction has ended.";
     if (!isLoggedIn) return null;
-    if (!effectiveEligibleForChat) return "Place a bid to unlock the chat for this auction.";
+    if (!effectiveEligibleForChat)
+      return "Place a bid to unlock the chat for this auction.";
     return null;
   }, [auction, isActive, isLoggedIn, effectiveEligibleForChat]);
 
   const isEnded = useMemo(() => {
     if (!auction) return false;
-    if (auction.status === "EXPIRED" || auction.status === "CANCELLED") return true;
+    if (auction.status === "EXPIRED" || auction.status === "CANCELLED")
+      return true;
     return timeBox.ended;
   }, [auction, timeBox.ended]);
 
@@ -11579,9 +11556,84 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
     return city.trim();
   };
 
+  // ✅ compute popover position: ΚΕΝΤΡΟ στο δεξί card (Time/Bid/Rankings)
+  const computeConfirmPos = useCallback((): ConfirmBidState["pos"] => {
+    const maxWidth = window.innerWidth - 16;
+
+    const card = bidCardRef.current;
+    if (card) {
+      const r = card.getBoundingClientRect();
+
+      const width = Math.min(460, r.width - 24, maxWidth);
+
+      const centerX = r.left + r.width / 2;
+      const centerY = r.top + r.height / 2;
+
+      const left = Math.min(
+        window.innerWidth - width / 2 - 8,
+        Math.max(width / 2 + 8, centerX)
+      );
+
+      const top = Math.min(window.innerHeight - 90, Math.max(90, centerY));
+
+      return { top, left, width, placement: "center" };
+    }
+
+    // fallback: κέντρο οθόνης
+    const width = Math.min(460, maxWidth);
+    return {
+      top: window.innerHeight / 2,
+      left: window.innerWidth / 2,
+      width,
+      placement: "center",
+    };
+  }, []);
+
+  // ✅ Lock scroll όσο είναι ανοικτό το confirm popup (για να μένει σταθερό)
+  useEffect(() => {
+    if (!confirmBid) return;
+
+    const prevOverflow = document.body.style.overflow;
+    const prevPaddingRight = document.body.style.paddingRight;
+
+    // Προαιρετικό: αποφυγή layout shift λόγω scrollbar
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPaddingRight;
+    };
+  }, [confirmBid]);
+
+  // ✅ Αν αλλάξει το viewport (resize), κράτα το popup κεντραρισμένο στο card
+  useEffect(() => {
+    if (!confirmBid) return;
+
+    let raf = 0;
+    const update = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        setConfirmBid((prev) => (prev ? { ...prev, pos: computeConfirmPos() } : prev));
+      });
+    };
+
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [confirmBid, computeConfirmPos]);
+
   // actions
-  const handleBid = async () => {
+  const openConfirmBid = useCallback(() => {
     if (!auction) return;
+    if (!canBid) return;
 
     const raw = bidAmount.trim();
     if (!raw) {
@@ -11595,26 +11647,49 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
       return;
     }
 
-    try {
-      await placeBid(auction.id, amount);
+    setConfirmBid({
+      auctionId: auction.id,
+      lastAmount: auction.bids?.at(0)?.amount ?? null,
+      startingAmount: auction.startingAmount ?? null,
+      amount,
+      title: auction.title ?? "",
+      pos: computeConfirmPos(),
+    });
+  }, [auction, canBid, bidAmount, bidNotice, computeConfirmPos]);
 
-      // ✅ Optimistic unlock chat ONLY on success (no unlock on backend error)
-      setChatUnlockedOptimistic(true);
-      setAuction((prev) => (prev ? { ...prev, eligibleForChat: true } : prev));
+  const placeBidNow = useCallback(
+    async (auctionIdToBid: number, amount: number) => {
+      try {
+        await placeBid(auctionIdToBid, amount);
 
-      bidNotice.show("success", "Your bid was placed successfully!");
-      setBidAmount("");
+        // ✅ Optimistic unlock chat ONLY on success (no unlock on backend error)
+        setChatUnlockedOptimistic(true);
+        setAuction((prev) => (prev ? { ...prev, eligibleForChat: true } : prev));
 
-      // ❌ Do NOT reload the entire auction (avoids "refresh" feeling)
-      // await loadAuction();
-    } catch (e: unknown) {
-      const msg =
-        e instanceof Error
-          ? e.message
-          : "Something went wrong while placing your bid. Please try again.";
-      bidNotice.show("error", msg);
-    }
-  };
+        bidNotice.show("success", "Your bid was placed successfully!");
+        setBidAmount("");
+
+        // close confirm
+        setConfirmBid(null);
+      } catch (e: unknown) {
+        const msg =
+          e instanceof Error
+            ? e.message
+            : "Something went wrong while placing your bid. Please try again.";
+        bidNotice.show("error", msg);
+      }
+    },
+    [bidNotice]
+  );
+
+  const handleConfirmBid = useCallback(async () => {
+    if (!confirmBid) return;
+    if (confirmBusy) return;
+
+    setConfirmBusy(true);
+    await placeBidNow(confirmBid.auctionId, confirmBid.amount);
+    setConfirmBusy(false);
+  }, [confirmBid, confirmBusy, placeBidNow]);
 
   const handleSendChat = async () => {
     if (!auction) return;
@@ -11694,8 +11769,12 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
       title: editForm.title.trim() || undefined,
       shortDescription: editForm.shortDescription.trim() || undefined,
       description: editForm.description.trim() || undefined,
-      startingAmount: editForm.startingAmount ? Number(editForm.startingAmount) : undefined,
-      minBidIncrement: editForm.minBidIncrement ? Number(editForm.minBidIncrement) : undefined,
+      startingAmount: editForm.startingAmount
+        ? Number(editForm.startingAmount)
+        : undefined,
+      minBidIncrement: editForm.minBidIncrement
+        ? Number(editForm.minBidIncrement)
+        : undefined,
       startDate: editForm.startDate || undefined,
       endDate: editForm.endDate || undefined,
       shippingCostPayer: editForm.shippingCostPayer,
@@ -11727,7 +11806,6 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
   // ------------------ render ------------------
   return (
     <div
-      ref={rootRef}
       style={{
         minHeight: variant === "page" ? "100vh" : "100%",
         background: "#F6F8FB",
@@ -11747,6 +11825,9 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
           overflowX: "hidden",
         }}
       >
+        {/* ✅ anchor for scroll-to-top */}
+        <div ref={pageTopAnchorRef} style={{ height: 0 }} />
+
         {variant === "page" && onBack && (
           <div style={{ marginBottom: 12 }}>
             <button
@@ -11805,7 +11886,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                     <div
                       ref={chatScrollRef}
                       style={{
-                        height: chatViewportHeight,
+                        height: chatViewportHeight, // ✅ bigger height
                         overflowY: "auto",
                         paddingRight: 6,
                       }}
@@ -11816,10 +11897,35 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                         <div style={{ display: "grid", gap: 12 }}>
                           {auction.chat.map((m) => {
                             const isAuctioneer = m.senderDisplayName === auction.sellerUsername;
+
+                            // ✅ ΠΡΟΤΙΜΗΣΕ firebase id (μοναδικό)
+                            const myFirebaseId =
+                              (currentUser as any)?.firebaseId ??
+                              (currentUser as any)?.firebaseUid ??
+                              (currentUser as any)?.uid ??
+                              null;
+
+                            const myUsername =
+                              (currentUser as any)?.username ??
+                              (currentUser as any)?.displayName ??
+                              null;
+
+                            const isMe =
+                              (!!myFirebaseId && m.senderFirebaseId === myFirebaseId) ||
+                              (!!myUsername && m.senderDisplayName === myUsername);
+
                             return (
                               <div key={m.id} style={{ display: "grid", gap: 6 }}>
-                                <div style={{ color: "#6B7280", fontWeight: 700, fontSize: 12 }}>
+                                <div
+                                  style={{
+                                    color: "#6B7280",
+                                    fontWeight: 700,
+                                    fontSize: 12,
+                                  }}
+                                >
                                   {new Date(m.createdAt).toLocaleTimeString("en-US", {
+                                    month:"long",
+                                    day:"2-digit",
                                     hour: "numeric",
                                     minute: "2-digit",
                                   })}
@@ -11833,9 +11939,20 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                                     minWidth: 0,
                                   }}
                                 >
-                                  <AvatarCircle size={28} name={m.senderDisplayName} url={m.senderAvatarUrl ?? null} />
+                                  <AvatarCircle
+                                    size={28}
+                                    name={m.senderDisplayName}
+                                    url={m.senderAvatarUrl ?? null}
+                                  />
 
-                                  <div style={{ display: "grid", gap: 6, width: "100%", minWidth: 0 }}>
+                                  <div
+                                    style={{
+                                      display: "grid",
+                                      gap: 6,
+                                      width: "100%",
+                                      minWidth: 0,
+                                    }}
+                                  >
                                     <div
                                       style={{
                                         display: "flex",
@@ -11848,7 +11965,9 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                                         {isAdmin ? (
                                           <button
                                             type="button"
-                                            onClick={() => handleOpenUserDetails(m.senderDisplayName)}
+                                            onClick={() =>
+                                              handleOpenUserDetails(m.senderDisplayName)
+                                            }
                                             style={{
                                               background: "transparent",
                                               border: "none",
@@ -11877,7 +11996,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                                             }}
                                             title={m.senderDisplayName}
                                           >
-                                            {m.senderDisplayName}
+                                            {m.senderDisplayName} {isMe ? "(you)" : ""}
                                           </div>
                                         )}
                                       </div>
@@ -11903,7 +12022,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                                     <div
                                       style={{
                                         display: "inline-block",
-                                        background: isAuctioneer ? "#FEF3C7" : "#FFFFFF",
+                                        background: isMe ? "#EFF6FF" : isAuctioneer ? "#FEF3C7" : "#FFFFFF",
                                         border: "1px solid #E5E7EB",
                                         borderRadius: 14,
                                         padding: "10px 12px",
@@ -12217,7 +12336,9 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                                         objectPosition: "center",
                                         background: "#F3F4F6",
                                       }}
-                                      onError={() => setBrokenImageByUrl((p) => ({ ...p, [u]: true }))}
+                                      onError={() => {
+                                        setBrokenImageByUrl((p) => ({ ...p, [u]: true }));
+                                      }}
                                     />
                                   </button>
                                 );
@@ -12226,6 +12347,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                           )}
                         </div>
                       ) : (
+                        // ✅ No image: μην εμφανίζεις το image box, μόνο μήνυμα
                         <div
                           style={{
                             background: "white",
@@ -12256,7 +12378,11 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                         </div>
 
                         <div style={{ display: "flex", gap: 12, alignItems: "center", minWidth: 0 }}>
-                          <AvatarCircle size={44} name={auction.sellerUsername} url={auction.sellerAvatarUrl ?? null} />
+                          <AvatarCircle
+                            size={44}
+                            name={auction.sellerUsername}
+                            url={auction.sellerAvatarUrl ?? null}
+                          />
 
                           <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
                             <div style={{ fontWeight: 800, color: "#111827" }}>
@@ -12354,6 +12480,21 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                           minWidth: 0,
                         }}
                       >
+                     {isMobile && (
+                        <div
+                          style={{
+                            fontSize: 18,
+                            fontWeight: 900,
+                            paddingBottom:30,
+                            color: "#111827",
+                            overflowWrap: "anywhere",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {auction.title}
+                        </div>
+                        )}
+
                         <div style={{ fontWeight: 900, color: "#111827", marginBottom: 10 }}>
                           Description
                         </div>
@@ -12369,59 +12510,50 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                           {auction.description || auction.shortDescription || "—"}
                         </div>
 
-                      <div
-                      style={{
-                        marginTop: 14,
-                        paddingTop: 14,
-                        borderTop: "1px solid #EEF2F7",
-                        display: "grid",
-                        gridTemplateColumns: isSingleColumn
-                          ? "1fr"
-                          : "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)", // ✅ 3 columns
-                        gap: 12,
-                      }}
-                    >
-                      <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
-                        <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                          <div style={{ fontWeight: 800, color: "#111827", fontSize: 13 }}>
-                            Starting price
+                        <div
+                          style={{
+                            marginTop: 14,
+                            paddingTop: 14,
+                            borderTop: "1px solid #EEF2F7",
+                            display: "grid",
+                            gridTemplateColumns: isSingleColumn
+                              ? "1fr"
+                              : "minmax(0, 1fr) minmax(0, 1fr)",
+                            gap: 12,
+                          }}
+                        >
+                          <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
+                            <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                              <div style={{ fontWeight: 800, color: "#111827", fontSize: 13 }}>
+                                Starting price
+                              </div>
+                              <div style={{ fontWeight: 450 }}>
+                                {formatMoneyEUR(auction.startingAmount)}
+                              </div>
+                            </div>
                           </div>
-                          <div style={{ fontWeight: 900, color: "#111827" }}>
-                            {formatMoneyEUR(auction.startingAmount)}
+
+                          <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
+                            <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                              <div style={{ fontWeight: 800, color: "#111827", fontSize: 13 }}>
+                                Minimum raise
+                              </div>
+                              <div style={{ fontWeight: 450 }}>
+                                {formatMoneyEUR(auction.minBidIncrement)}
+                              </div>
+                            </div>
+                          </div>
+                            <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
+                            <div style={{ paddingTop: !isMobile ? 10 : 0, display: "grid", gap: 2, minWidth: 0 }}>
+                              <div style={{ fontWeight: 800, color: "#111827", fontSize: 13 }}>
+                                Shipping cost payer:
+                              </div>
+                              <div style={{ fontWeight: 450 }}>
+                                {auction.shippingCostPayer}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-
-                      <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
-                        <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                          <div style={{ fontWeight: 800, color: "#111827", fontSize: 13 }}>
-                            Minimum raise
-                          </div>
-                          <div style={{ fontWeight: 900, color: "#111827" }}>
-                            {formatMoneyEUR(auction.minBidIncrement)}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* ✅ NEW: Shipping cost payer */}
-                      <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
-                        <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                          <div style={{ fontWeight: 800, color: "#111827", fontSize: 13 }}>
-                            Shipping cost
-                          </div>
-                          <div style={{ fontWeight: 900, color: "#111827" }}>
-                            {auction.shippingCostPayer === "BUYER"
-                              ? "Buyer pays"
-                              : auction.shippingCostPayer === "SELLER"
-                              ? "Seller pays"
-                              : auction.shippingCostPayer === "SPLIT"
-                              ? "Split"
-                              : auction.shippingCostPayer}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
                       </div>
 
                       {/* ✅ Chat stays here ONLY on non-mobile */}
@@ -12431,6 +12563,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                     {/* RIGHT COLUMN */}
                     <div style={{ minWidth: 0, display: "grid", gap: 14 }}>
                       <div
+                        ref={bidCardRef}
                         style={{
                           background: "white",
                           borderRadius: 16,
@@ -12439,6 +12572,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                           minWidth: 0,
                         }}
                       >
+                        {!isMobile && (
                         <div
                           style={{
                             fontSize: 18,
@@ -12450,6 +12584,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                         >
                           {auction.title}
                         </div>
+                        )}
 
                         <div
                           style={{
@@ -12462,7 +12597,9 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                         >
                           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                             <span style={{ fontSize: 18 }}>🕒</span>
-                            <div style={{ fontWeight: 800, color: "#374151" }}>Time Remaining</div>
+                            <div style={{ fontWeight: 800, color: "#374151" }}>
+                              Time Remaining
+                            </div>
                           </div>
                           <div
                             style={{
@@ -12480,10 +12617,20 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                         {!isEnded && (
                           <div style={{ marginTop: 16 }}>
                             <div style={{ color: "#6B7280", fontWeight: 700, fontSize: 13 }}>
-                              Place Your Bid {minNextBid != null ? `(min ${formatMoneyEUR(minNextBid)})` : ""}
+                              Place Your Bid{" "}
+                              {minNextBid != null ? `(min ${formatMoneyEUR(minNextBid)})` : ""}
                             </div>
 
-                            <div style={{ marginTop: 10, display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
+                            <div
+                              ref={bidAnchorRef}
+                              style={{
+                                marginTop: 10,
+                                display: "flex",
+                                gap: 10,
+                                alignItems: "center",
+                                minWidth: 0,
+                              }}
+                            >
                               <div
                                 style={{
                                   flex: 1,
@@ -12494,7 +12641,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                                   border: "1px solid #E5E7EB",
                                   borderRadius: 12,
                                   padding: "10px 12px",
-                                  background: "white",
+                                  background: canBid ? "white" : "#F9FAFB",
                                   boxSizing: "border-box",
                                 }}
                               >
@@ -12521,7 +12668,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                               {canBid ? (
                                 <button
                                   type="button"
-                                  onClick={handleBid}
+                                  onClick={openConfirmBid}
                                   style={{
                                     padding: "10px 14px",
                                     borderRadius: 12,
@@ -12550,7 +12697,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                                     whiteSpace: "nowrap",
                                   }}
                                 >
-                                  <span style={{ color: "#0B84F3" }} aria-hidden="true">🔒</span> Sign in to Bid
+                                  Sign in to Bid
                                 </button>
                               )}
                             </div>
@@ -12735,79 +12882,81 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                                   background: "#F9FAFB",
                                 }}
                               >
-                                {sortedBids.slice(3).map((b) => (
-                                  <div
-                                    key={`more-${b.id}`}
-                                    style={{
-                                      borderRadius: 14,
-                                      border: "1px solid #E5E7EB",
-                                      background: "#FFFFFF",
-                                      padding: 12,
-                                      display: "flex",
-                                      justifyContent: "space-between",
-                                      alignItems: "center",
-                                      gap: 12,
-                                      minWidth: 0,
-                                    }}
-                                  >
-                                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                                      <AvatarCircle size={38} name={b.bidderUsername} url={b.bidderAvatarUrl ?? null} />
-                                      <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                                        <div style={{ fontWeight: 900, color: "#111827", minWidth: 0 }}>
-                                          {b.bidderUsername ? (
-                                            isAdmin ? (
-                                              <button
-                                                type="button"
-                                                onClick={() => handleOpenUserDetails(b.bidderUsername)}
-                                                style={{
-                                                  background: "transparent",
-                                                  border: "none",
-                                                  padding: 0,
-                                                  margin: 0,
-                                                  cursor: "pointer",
-                                                  fontWeight: 900,
-                                                  color: "#111827",
-                                                  textAlign: "left",
-                                                  maxWidth: "100%",
-                                                  whiteSpace: "nowrap",
-                                                  overflow: "hidden",
-                                                  textOverflow: "ellipsis",
-                                                }}
-                                                title={b.bidderUsername}
-                                              >
-                                                {b.bidderUsername}
-                                              </button>
+                                {sortedBids.slice(3).map((b) => {
+                                  return (
+                                    <div
+                                      key={`more-${b.id}`}
+                                      style={{
+                                        borderRadius: 14,
+                                        border: "1px solid #E5E7EB",
+                                        background: "#FFFFFF",
+                                        padding: 12,
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        gap: 12,
+                                        minWidth: 0,
+                                      }}
+                                    >
+                                      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                                        <AvatarCircle size={38} name={b.bidderUsername} url={b.bidderAvatarUrl ?? null} />
+                                        <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                                          <div style={{ fontWeight: 900, color: "#111827", minWidth: 0 }}>
+                                            {b.bidderUsername ? (
+                                              isAdmin ? (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleOpenUserDetails(b.bidderUsername)}
+                                                  style={{
+                                                    background: "transparent",
+                                                    border: "none",
+                                                    padding: 0,
+                                                    margin: 0,
+                                                    cursor: "pointer",
+                                                    fontWeight: 900,
+                                                    color: "#111827",
+                                                    textAlign: "left",
+                                                    maxWidth: "100%",
+                                                    whiteSpace: "nowrap",
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                  }}
+                                                  title={b.bidderUsername}
+                                                >
+                                                  {b.bidderUsername}
+                                                </button>
+                                              ) : (
+                                                <div
+                                                  style={{
+                                                    maxWidth: "100%",
+                                                    whiteSpace: "nowrap",
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                  }}
+                                                  title={b.bidderUsername}
+                                                >
+                                                  {b.bidderUsername}
+                                                </div>
+                                              )
                                             ) : (
-                                              <div
-                                                style={{
-                                                  maxWidth: "100%",
-                                                  whiteSpace: "nowrap",
-                                                  overflow: "hidden",
-                                                  textOverflow: "ellipsis",
-                                                }}
-                                                title={b.bidderUsername}
-                                              >
-                                                {b.bidderUsername}
-                                              </div>
-                                            )
-                                          ) : (
-                                            "Unknown"
-                                          )}
-                                        </div>
+                                              "Unknown"
+                                            )}
+                                          </div>
 
-                                        <div style={{ color: "#6B7280", fontWeight: 700, fontSize: 13 }}>
-                                          {timeAgo(b.createdAt, now)}
+                                          <div style={{ color: "#6B7280", fontWeight: 700, fontSize: 13 }}>
+                                            {timeAgo(b.createdAt, now)}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div style={{ textAlign: "right", flex: "0 0 auto" }}>
+                                        <div style={{ color: "#2563EB", fontWeight: 950 }}>
+                                          {formatMoneyEUR(b.amount)}
                                         </div>
                                       </div>
                                     </div>
-
-                                    <div style={{ textAlign: "right", flex: "0 0 auto" }}>
-                                      <div style={{ color: "#2563EB", fontWeight: 950 }}>
-                                        {formatMoneyEUR(b.amount)}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
@@ -12816,7 +12965,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                     </div>
                   </div>
 
-                  {/* ✅ On mobile: chat goes to the END of the page */}
+                  {/* ✅ On mobile: chat goes to the END of the page (after title/time/bids) */}
                   {isMobile && <div style={{ marginTop: 14 }}>{chatCard}</div>}
                 </>
               );
@@ -12883,9 +13032,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                       <div
                         style={{
                           display: "grid",
-                          gridTemplateColumns: isSingleColumn
-                            ? "1fr"
-                            : "minmax(0, 1fr) minmax(0, 1fr)",
+                          gridTemplateColumns: isSingleColumn ? "1fr" : "minmax(0, 1fr) minmax(0, 1fr)",
                           gap: 10,
                         }}
                       >
@@ -12954,65 +13101,49 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                       </label>
 
                       <div
-                  style={{
-                    marginTop: 14,
-                    paddingTop: 14,
-                    borderTop: "1px solid #EEF2F7",
-                    display: "grid",
-                    gridTemplateColumns: isSingleColumn
-                      ? "1fr"
-                      : "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)", // ✅ 3 columns
-                    gap: 12,
-                  }}
-                >
-                  <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
-                    <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                      <div style={{ fontWeight: 800, color: "#111827", fontSize: 13 }}>
-                        Starting price
-                      </div>
-                      <div style={{ fontWeight: 900, color: "#111827" }}>
-                        {formatMoneyEUR(auction.startingAmount)}
-                      </div>
-                    </div>
-                  </div>
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: isSingleColumn ? "1fr" : "minmax(0, 1fr) minmax(0, 1fr)",
+                          gap: 10,
+                        }}
+                      >
+                        <label style={{ display: "grid", gap: 6, fontWeight: 800 }}>
+                          Starting amount
+                          <input
+                            value={editForm.startingAmount}
+                            onChange={(e) => setEditForm((p) => ({ ...p, startingAmount: e.target.value }))}
+                            type="number"
+                            style={{
+                              border: "1px solid #E5E7EB",
+                              borderRadius: 12,
+                              padding: "10px 12px",
+                              minWidth: 0,
+                              boxSizing: "border-box",
+                            }}
+                          />
+                        </label>
 
-                  <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
-                    <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                      <div style={{ fontWeight: 800, color: "#111827", fontSize: 13 }}>
-                        Minimum raise
+                        <label style={{ display: "grid", gap: 6, fontWeight: 800 }}>
+                          Min bid increment
+                          <input
+                            value={editForm.minBidIncrement}
+                            onChange={(e) => setEditForm((p) => ({ ...p, minBidIncrement: e.target.value }))}
+                            type="number"
+                            style={{
+                              border: "1px solid #E5E7EB",
+                              borderRadius: 12,
+                              padding: "10px 12px",
+                              minWidth: 0,
+                              boxSizing: "border-box",
+                            }}
+                          />
+                        </label>
                       </div>
-                      <div style={{ fontWeight: 900, color: "#111827" }}>
-                        {formatMoneyEUR(auction.minBidIncrement)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ✅ NEW: Shipping cost payer */}
-                  <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
-                    <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                      <div style={{ fontWeight: 800, color: "#111827", fontSize: 13 }}>
-                        Shipping cost
-                      </div>
-                      <div style={{ fontWeight: 900, color: "#111827" }}>
-                        {auction.shippingCostPayer === "BUYER"
-                          ? "Buyer pays"
-                          : auction.shippingCostPayer === "SELLER"
-                          ? "Seller pays"
-                          : auction.shippingCostPayer === "SPLIT"
-                          ? "Split"
-                          : auction.shippingCostPayer}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
 
                       <div
                         style={{
                           display: "grid",
-                          gridTemplateColumns: isSingleColumn
-                            ? "1fr"
-                            : "minmax(0, 1fr) minmax(0, 1fr)",
+                          gridTemplateColumns: isSingleColumn ? "1fr" : "minmax(0, 1fr) minmax(0, 1fr)",
                           gap: 10,
                         }}
                       >
@@ -13052,9 +13183,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
                       <div
                         style={{
                           display: "grid",
-                          gridTemplateColumns: isSingleColumn
-                            ? "1fr"
-                            : "minmax(0, 1fr) minmax(0, 1fr)",
+                          gridTemplateColumns: isSingleColumn ? "1fr" : "minmax(0, 1fr) minmax(0, 1fr)",
                           gap: 10,
                         }}
                       >
@@ -13188,6 +13317,56 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
           />
         </div>
       )}
+
+      {/* ✅ Confirm bid popover (portal) */}
+ {confirmBid && typeof document !== "undefined" &&
+  createPortal(
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9000,
+
+        // ✅ ΜΟΝΟ ΣΤΟ MOBILE: γκρι + blur πίσω από το popup
+        background: isMobile ? "rgba(17,24,39,0.65)" : "transparent",
+      }}
+      onMouseDown={(e) => {
+        // click outside -> cancel
+        if (e.target === e.currentTarget && !confirmBusy) {
+          setConfirmBid(null);
+        }
+      }}
+    >
+        {/* ✅ CONFIRM OVERLAY: centered in the card, stays until Cancel/Confirm */}
+        { confirmBid && (
+            <div
+                style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 4500,
+                background: "rgba(15, 23, 42, 0.45)", // slate-900-ish
+                backdropFilter: "blur(1px)",
+                WebkitBackdropFilter: "blur(2px)",
+                borderRadius: 16,
+                display: "block",
+                pointerEvents: "auto",
+                }}
+            >
+                        
+      <ConfirmBidPopover
+        state={confirmBid}
+        busy={confirmBusy}
+        onCancel={() => {
+          if (!confirmBusy) setConfirmBid(null);
+        }}
+        onConfirm={() => void handleConfirmBid()}
+      />
+      </div>
+)}
+    </div>,
+    document.body
+  )}
+
     </div>
   );
 };
