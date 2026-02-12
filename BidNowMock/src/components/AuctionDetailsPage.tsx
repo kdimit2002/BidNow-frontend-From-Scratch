@@ -10884,9 +10884,9 @@
 // AuctionDetailsPage.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import SockJS from "sockjs-client";
+//import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
-import type { IMessage, IStompSocket, StompSubscription } from "@stomp/stompjs";
+import type { IMessage, StompSubscription } from "@stomp/stompjs";
 
 import { getAuctionById } from "../api/Springboot/backendAuctionService";
 import { placeBid } from "../api/Springboot/BackendBidService";
@@ -10905,6 +10905,7 @@ import {
   ConfirmBidPopover,
   type ConfirmBidState,
 } from "../components/ConfirmBidPopover";
+
 
 interface AuctionDetailsPageProps {
   auctionId: number;
@@ -11240,9 +11241,13 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
   }, []);
 
   // ws
-  const [stompClient, setStompClient] = useState<Client | null>(null);
-  const bidSubRef = useRef<StompSubscription | null>(null);
-  const chatSubRef = useRef<StompSubscription | null>(null);
+const [stompClient, setStompClient] = useState<Client | null>(null);
+
+// ✅ important: triggers re-subscribe on reconnect
+const [stompConnectSeq, setStompConnectSeq] = useState(0);
+
+const bidSubRef = useRef<StompSubscription | null>(null);
+const chatSubRef = useRef<StompSubscription | null>(null);
 
   const isAdmin = currentUser?.roleName === "Admin";
 
@@ -11327,39 +11332,49 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
     void loadAuction();
   }, [loadAuction]);
 
-  // STOMP connect once
-  useEffect(() => {
-    const socket = new SockJS("/ws");
-    const client = new Client({
-      webSocketFactory: () => socket as unknown as IStompSocket,
-      reconnectDelay: 5000,
-      debug: () => {},
-    });
+useEffect(() => {
+  const wsUrl =
+    import.meta.env.VITE_WS_URL ??
+    `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/ws`;
 
-    client.onConnect = () => setStompClient(client);
-    client.onStompError = (frame) => {
-      // eslint-disable-next-line no-console
-      console.error(
-        "STOMP error (details):",
-        frame.headers["message"],
-        frame.body
-      );
-    };
+  const client = new Client({
+    brokerURL: wsUrl,
+    reconnectDelay: 5000,
+    debug: () => {},
+  });
 
-    client.activate();
+  client.onConnect = () => {
+    setStompClient(client);
+    setStompConnectSeq((n) => n + 1); // ✅ force re-subscribe on reconnect
+  };
 
-    return () => {
-      if (bidSubRef.current) {
-        bidSubRef.current.unsubscribe();
-        bidSubRef.current = null;
-      }
-      if (chatSubRef.current) {
-        chatSubRef.current.unsubscribe();
-        chatSubRef.current = null;
-      }
-      client.deactivate();
-    };
-  }, []);
+  client.onStompError = (frame) => {
+    console.error("STOMP error (details):", frame.headers["message"], frame.body);
+  };
+
+  client.onWebSocketError = (e) => {
+    console.error("WebSocket error:", e);
+  };
+
+  client.onWebSocketClose = (e) => {
+    console.warn("WebSocket closed:", e);
+  };
+
+  client.activate();
+
+  return () => {
+    if (bidSubRef.current) {
+      bidSubRef.current.unsubscribe();
+      bidSubRef.current = null;
+    }
+    if (chatSubRef.current) {
+      chatSubRef.current.unsubscribe();
+      chatSubRef.current = null;
+    }
+    client.deactivate();
+  };
+}, []);
+
 
   // Subscribe bids/chat
   useEffect(() => {
@@ -11443,7 +11458,7 @@ const AuctionDetailsPage: React.FC<AuctionDetailsPageProps> = ({
       if (bidSubRef.current === bidSub) bidSubRef.current = null;
       if (chatSubRef.current === chatSub) chatSubRef.current = null;
     };
-  }, [stompClient, auctionId]);
+}, [stompClient, auctionId, stompConnectSeq]);
 
   // auto-scroll first load chat (once per auction)
   useEffect(() => {

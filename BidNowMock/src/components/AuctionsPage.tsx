@@ -5289,8 +5289,10 @@ import { getAuctions } from "../api/Springboot/backendAuctionService";
 import { placeBid } from "../api/Springboot/BackendBidService";
 
 import { Client } from "@stomp/stompjs";
-import type { IMessage, StompSubscription, IStompSocket } from "@stomp/stompjs";
-import SockJS from "sockjs-client";
+import type { IMessage, StompSubscription, } from "@stomp/stompjs";
+
+//import SockJS from "sockjs-client";
+
 import { getCategories, type CategoryDto } from "../api/Springboot/backendCategoryService";
 
 // ✅ reuse the same popover component (AuctionDetails uses it as-is)
@@ -5583,28 +5585,37 @@ const AuctionsPage: React.FC<AuctionsPageProps> = ({
     void loadCategories();
   }, []);
 
-  useEffect(() => {
-    const socket = new SockJS("/ws");
-    const client = new Client({
-      webSocketFactory: () => socket as unknown as IStompSocket,
-      reconnectDelay: 5000,
-      debug: () => {},
-    });
+ useEffect(() => {
+  // ✅ production-like: brokerURL με ws/wss ανάλογα με το origin
+  const wsUrl =
+    import.meta.env.VITE_WS_URL ??
+    `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/ws`;
 
-    client.onConnect = () => setStompClient(client);
+  const client = new Client({
+    brokerURL: wsUrl,
+    reconnectDelay: 5000,
+    debug: () => {},
+  });
 
-    client.onStompError = (frame) => {
-      console.error("STOMP error:", frame.headers["message"], frame.body);
-    };
+  client.onConnect = () => setStompClient(client);
 
-    client.activate();
+  client.onStompError = (frame) => {
+    console.error("STOMP error:", frame.headers["message"], frame.body);
+  };
 
-    return () => {
-      Object.values(subscriptionsRef.current).forEach((sub) => sub.unsubscribe());
-      subscriptionsRef.current = {};
-      client.deactivate();
-    };
-  }, []);
+  client.onWebSocketError = (e) => {
+    console.error("WebSocket error:", e);
+  };
+
+  client.activate();
+
+  return () => {
+    Object.values(subscriptionsRef.current).forEach((sub) => sub.unsubscribe());
+    subscriptionsRef.current = {};
+    client.deactivate();
+  };
+}, []);
+
 
   useEffect(() => {
     if (!stompClient || !stompClient.connected || !pageData) return;

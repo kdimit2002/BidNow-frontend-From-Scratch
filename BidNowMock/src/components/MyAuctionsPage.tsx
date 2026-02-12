@@ -843,7 +843,6 @@ const MyAuctionsPage: React.FC<MyAuctionsPageProps> = ({
     justifyContent: "space-between",
     gap: 12,
     flexWrap: "wrap",
-    alignItems: "flex-start",
   };
 
   // ✅ CHANGED: title wraps to new line (even for long/unbroken strings)
